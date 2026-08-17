@@ -1,228 +1,348 @@
 /**
- * Hệ thống 03 — Trục khuỷu & lốc máy.
+ * index.js — Module hệ thống 03: Trục khuỷu & lốc máy.
  */
 
-export default {
-  mode: 'doc',
-  slug: 'crank-case',
-  doc: {
-    lead: 'Lốc máy là "khung xương" của cả động cơ: nó đỡ trục khuỷu, hộp số, ly hợp và '
-      + 'chứa nhớt. Muốn vào đến trục khuỷu thì bắt buộc phải tách lốc máy — đây là '
-      + 'công việc lớn nhất, và cũng là công việc dễ làm sai nhất.',
+import * as THREE from 'three';
+import { el } from '../../core/ui.js';
+import {
+  L, CRANK_R, CAM_PR, pinYFromCrank, rodTilt, unbalancedForce, forcePeaks,
+  bestBalanceFactor, RECIP_MASS, STROKES,
+} from './layout.js';
+import { PARTS } from './parts.js';
+import { STEPS } from './steps.js';
+import { createKinematics } from './kinematics.js';
 
-    theory: [
-      {
-        h: 'Trục khuỷu RỜI (built-up crankshaft) — đặc điểm quyết định mọi thứ',
-        p: [
-          'Xe máy 1 xy-lanh nhỏ không dùng trục khuỷu liền khối với tay biên tháo được như '
-          + 'ở ô tô. Thay vào đó: hai nửa má khuỷu được <b>ép nóng</b> vào chốt khuỷu, và tay biên '
-          + 'cùng ổ bi kim nằm kẹt trong đó. Cả khối thành một chi tiết không tách được bằng tay.',
-          '<b>Hậu quả thực tế:</b> nếu ổ bi đầu to tay biên mòn, bạn <b>không thể thay riêng</b> '
-          + 'bạc hay tay biên — phải thay cả trục khuỷu, hoặc đưa ra xưởng chuyên ép lại. '
-          + 'Đây là lý do tiếng gõ dưới máy lại là một chẩn đoán đắt tiền.',
-        ],
-      },
-      {
-        h: 'Vì sao trục khuỷu phải được cân bằng',
-        p: [
-          'Khối lượng piston + tay biên chuyển động lên xuống sinh lực quán tính đổi dấu '
-          + 'mỗi nửa vòng. Má khuỷu có đối trọng (counterweight) để trung hoà một phần lực đó.',
-          'Động cơ 1 xy-lanh <b>không thể cân bằng hoàn toàn</b> — chỉ cân bằng được khoảng '
-          + '50–70% lực quán tính bậc 1. Phần còn lại chính là độ rung bạn cảm thấy ở tay lái. '
-          + 'Đó là đặc tính, không phải lỗi.',
-        ],
-      },
-      {
-        h: 'Ổ bi cầu và vì sao phải ép nóng',
-        p: [
-          'Trục khuỷu quay trên 2 ổ bi cầu ép vào 2 nửa lốc máy. Ổ bi lắp kiểu <b>ép chặt</b> '
-          + '(interference fit): đường kính trong ổ bi nhỏ hơn cổ trục một chút.',
-          'Vì vậy không thể đóng búa vào — cách đúng là làm nóng nửa lốc máy bằng nhôm '
-          + '(~90–110 °C, nhôm giãn nhiều hơn thép) hoặc làm lạnh ổ bi, rồi trục tự vào. '
-          + 'Đóng búa vào ổ bi làm mòn vết bi (brinelling) — ổ bi sẽ kẹn sau vài trăm km.',
-        ],
-      },
-      {
-        h: 'Phớt chặn nhớt: hai chiếc quyết định xe có rỉ nhớt hay không',
-        p: [
-          'Một phớt ở đầu trục khuỷu bên trái (phía mâm lửa / bánh đà), một bên phải (phía bộ nồi). '
-          + 'Cả hai làm việc ở tốc độ quay cao và tiếp xúc trực tiếp với nhớt áp suất.',
-          'Phớt phải lắp <b>đúng chiều</b>: lò xo vòng (garter spring) hướng vào phía CÓ NHỚT. '
-          + 'Lắp ngược thì phớt không ép vào trục khi áp suất tăng -> rỉ ngay.',
-        ],
-      },
-      {
-        h: 'Tách lốc máy: nguyên tắc vàng',
-        p: [
-          '<b>Chỉ được tách bằng bu lông kéo (case splitter), không được nảy hay đóng.</b> '
-          + 'Hai nửa lốc máy có mặt lắp chính xác tính bằng phần trăm milimet, không có gioăng giấy — '
-          + 'chỉ phủ keo làm kín. Một vết nảy bằng tua-vít trên mặt lắp là rỉ nhớt vĩnh viễn.',
-          'Trước khi tách: đếm và ghi lại vị trí TỪNG bu lông (chúng khác chiều dài nhau) '
-          + 'về một tờ giấy bố trí theo đúng hình dạng lốc máy.',
-        ],
-      },
-    ],
+const CK = L.crank, CS = L.case, BR = L.bearing, SL = L.seal;
+const mm = (v) => `${v.toFixed(2)} mm`;
+const N = (v) => `${v.toFixed(0)} N`;
 
-    specs: [
-      ['Kiểu trục khuỷu', 'Trục khuỷu rời, ép nóng, tay biên không tháo được'],
-      ['Số ổ đỡ', '2 ổ bi cầu (trái + phải)'],
-      ['Độ đảo trục khuỷu', '≤ 0,03 mm (đo trên 2 mũi chống tâm)'],
-      ['Độ đảo radial đầu to tay biên', '≤ 0,05 mm'],
-      ['Khe hở dọc trục đầu to tay biên', '0,10–0,40 mm'],
-      ['Lực siết bu lông lốc máy', '≈ 10–12 N·m (M6) — siết theo hình xoắn từ trong ra'],
-      ['Dung tích nhớt', '≈ 0,8 L (thay định kỳ), 0,9 L (khi tháo cả động cơ)'],
-      ['Làm kín 2 nửa lốc máy', 'Keo làm kín dạng lỏng, KHÔNG dùng gioăng giấy'],
-    ],
+const BEST = bestBalanceFactor(5000);
 
-    parts: [
-      { name: 'Nửa lốc máy trái', nameEn: 'Left crankcase half', qty: 1,
-        material: 'Hợp kim nhôm đúc áp lực',
-        spec: 'Chứa ổ đỡ trục khuỷu trái, đường dây cam, ổ đỡ trục số',
-        fn: 'Đỡ trục khuỷu và trục hộp số; tạo khoang các-te chứa nhớt.',
-        fail: 'Xước mặt lắp (do nảy bằng tua-vít) -> rỉ nhớt không khắc phục được bằng keo. '
-          + 'Trượt ren bu lông -> phải ta-rô lại hoặc cấy ren.' },
-      { name: 'Nửa lốc máy phải', nameEn: 'Right crankcase half', qty: 1,
-        material: 'Hợp kim nhôm đúc áp lực',
-        spec: 'Chứa ổ đỡ phải, khoang ly hợp, bơm nhớt',
-        fn: 'Như trên, phía này chứa bộ nồi và bơm nhớt.', fail: 'Như trên.' },
-      { name: 'Trục khuỷu (nguyên bộ với tay biên)', nameEn: 'Crankshaft assembly', qty: 1,
-        material: 'Thép rèn, má khuỷu + chốt khuỷu ép nóng',
-        spec: 'Bán kính khuỷu 27,8 mm (hành trình 55,6 mm)',
-        fn: 'Biến chuyển động thẳng của piston thành chuyển động quay; dẫn động dây cam, '
-          + 'bơm nhớt, bộ nồi và mâm lửa.',
-        fail: 'Mòn ổ bi đầu to -> gõ nặng. Cong trục (độ đảo > 0,03 mm) -> rung mạnh. '
-          + 'Cả hai trường hợp đều phải thay/ép lại cả bộ.' },
-      { name: 'Ổ bi cầu đỡ trục khuỷu (2)', nameEn: 'Crankshaft main bearings', qty: 2,
-        material: 'Thép ổ bi', spec: 'Lắp ép chặt vào lốc máy',
-        fn: 'Đỡ trục khuỷu, chịu cả lực hướng kính và một phần lực dọc trục.',
-        fail: 'Kẹn/lỏng -> tiếng ru đều theo tốc độ. Thay bằng cách hâm nóng lốc máy, '
-          + 'không đóng búa.' },
-      { name: 'Phớt chặn nhớt trái', nameEn: 'Left crank seal', qty: 1,
-        material: 'Cao su NBR + khung thép + lò xo vòng',
-        spec: 'Lò xo vòng hướng vào phía có nhớt',
-        fn: 'Chặn nhớt không rỉ ra khoang mâm lửa.',
-        fail: 'Rỉ nhớt vào mâm lửa -> ướt cuộn điện, lửa yếu, xe khó nổ.' },
-      { name: 'Phớt chặn nhớt phải', nameEn: 'Right crank seal', qty: 1,
-        material: 'Cao su NBR + khung thép',
-        fn: 'Chặn nhớt phía bộ nồi.', fail: 'Rỉ nhớt ra vỏ ly hợp.' },
-      { name: 'Nhông dẫn động dây cam (trên trục khuỷu)', nameEn: 'Cam drive sprocket', qty: 1,
-        material: 'Thép tôi', spec: '14 răng (nhông cam 28 răng -> tỉ số 2:1)',
-        fn: 'Nguồn dẫn động trục cam.',
-        fail: 'Mòn răng -> dây cam nhảy răng, lệch pha phối khí.' },
-      { name: 'Bánh đà / rôto mâm lửa', nameEn: 'Flywheel / rotor', qty: 1,
-        material: 'Thép + nam châm vĩnh cửu gắn trong',
-        spec: 'Lắp côn + then bán nguyệt, đai ốc siết ≈ 55 N·m',
-        fn: 'Giữ quán tính cho trục khuỷu quay đều giữa các kỳ, đồng thời là rôto của '
-          + 'máy phát điện và là vòng chỉ thị điểm chết trên (dấu "T").',
-        fail: 'Then bán nguyệt bị cắt -> lệch góc đánh lửa, xe nổ dội hoặc không nổ. '
-          + 'Lỗ côn bị rỗ -> bánh đà lắc, phải thay.' },
-      { name: 'Then bán nguyệt (2–3)', nameEn: 'Woodruff keys', qty: 3,
-        material: 'Thép', spec: 'Rất nhỏ, dễ mất',
-        fn: 'Truyền momen và ĐỊNH VỊ GÓC cho bánh đà / nhông.',
-        fail: 'Bỏ sót hoặc bị cắt -> sai pha đánh lửa hoặc pha phối khí. '
-          + 'Kiểm tra then trước khi kết luận "hỏng CDI".' },
-      { name: 'Bu lông lốc máy (nhiều chiếc, khác chiều dài)', nameEn: 'Crankcase bolts', qty: 10,
-        material: 'Thép', spec: 'M6, chiều dài khác nhau tuỳ vị trí',
-        fn: 'Ép 2 nửa lốc máy. Siết theo hình xoắn từ trong ra ngoài, 2 lượt.',
-        fail: 'Lắp sai chiều dài -> bu lông dài xuyên qua mặt lắp hoặc bu lông ngắn không đủ ren. '
-          + 'Bố trí bu lông trên giấy theo hình lốc máy để không lẫn.' },
-      { name: 'Chốt dẫn hướng lốc máy (2)', nameEn: 'Case dowel pins', qty: 2,
-        material: 'Thép',
-        fn: 'Định vị 2 nửa lốc máy chính xác với nhau — bu lông chỉ giữ chặt.',
-        fail: 'Thiếu -> 2 nửa lệch, trục khuỷu và trục số bị kéo cong.' },
-      { name: 'Lọc lưới nhớt (ở các-te)', nameEn: 'Oil strainer screen', qty: 1,
-        material: 'Lưới thép',
-        fn: 'Chặn mảnh kim loại lớn trước khi nhớt vào bơm.',
-        fail: 'Tắc -> bơm hút không được -> tụt áp suất nhớt. Vệ sinh mỗi lần tách máy.' },
-    ],
-
-    steps: [
-      { title: 'Tháo động cơ ra khỏi khung xe',
-        detail: 'Xả nhớt, tháo ống xả, bộ hoà khí/cổ góp, dây điện, dây công-tắc-tơ, '
-          + 'dây ga, bàn đạp số, sên (tháo nhông trước). Rồi tháo 3–4 bu lông treo máy.',
-        tool: 'Bộ tuýp · con đội hoặc gỗ kê máy',
-        warn: 'Đỡ động cơ trước khi tháo bu lông treo cuối cùng — máy ~25 kg' },
-      { title: 'Tháo đầu bò + xy-lanh + piston',
-        detail: 'Toàn bộ hệ thống 01 và 02.', tip: 'Xem trang 01 và 02' },
-      { title: 'Tháo nửa vỏ bên phải: bộ nồi (ly hợp)',
-        detail: 'Tháo vỏ ly hợp, đai ốc bộ nồi, bộ nồi trước/sau, bánh răng sơ cấp. '
-          + 'Chi tiết ở hệ thống 04.',
-        tool: 'Vam giữ bộ nồi · tuýp lớn (thường 24–39 mm)',
-        warn: 'Đai ốc bộ nồi rất chặt và có thể là ren ngược — kiểm tra trước khi nới' },
-      { title: 'Tháo nửa vỏ bên trái: mâm lửa + bánh đà',
-        detail: 'Tháo vỏ trái, cuộn stator, rồi dùng vam RÚT bánh đà ra khỏi côn.',
-        tool: 'Vam rút bánh đà (bắt buộc) · vam giữ bánh đà',
-        warn: 'KHÔNG được nảy hoặc đóng ngang vào bánh đà — sẽ làm cong trục khuỷu',
-        tip: 'Lấy then bán nguyệt ra ngay và cho vào túi riêng' },
-      { title: 'Tháo bơm nhớt và bộ dẫn động bơm',
-        detail: 'Chi tiết ở hệ thống 06. Tháo trước khi tách lốc máy vì bơm nằm trong khoang phải.',
-        tool: 'Tuýp 8 mm' },
-      { title: 'Tháo cơ cấu sang số (trống số, càng cua)',
-        detail: 'Chi tiết ở hệ thống 05. Một số chi tiết của cơ cấu sang số phải ra trước khi '
-          + 'tách được lốc máy.',
-        tip: 'Chụp ảnh vị trí càng cua trước khi tháo' },
-      { title: 'Đếm và bố trí toàn bộ bu lông lốc máy',
-        detail: 'Vẽ hình lốc máy trên một tờ bìa, đâm lỗ và cắm đúng bu lông vào đúng vị trí. '
-          + 'Chúng khác chiều dài nhau.',
-        warn: 'Đây là bước bị bỏ qua nhiều nhất và là nguyên nhân phổ biến nhất của "lắp lại bị rỉ nhớt"' },
-      { title: 'TÁCH LỐC MÁY bằng bu lông kéo',
-        detail: 'Bắt dụng cụ tách (case splitter) vào đầu trục khuỷu, vặn đều cho hai nửa rời ra. '
-          + 'Trục khuỷu sẽ đi theo một nửa — thường là nửa trái.',
-        tool: 'Bộ vam tách lốc máy',
-        warn: 'TUYỆT ĐỐI không nảy tua-vít hoặc đóng búa vào mép mặt lắp. '
-          + 'Một vết nảy = rỉ nhớt không sửa được bằng keo' },
-      { title: 'Rút trục khuỷu ra khỏi ổ bi',
-        detail: 'Hâm nóng vùng ổ bi của nửa lốc máy (~90–110 °C) bằng súng nhiệt, trục sẽ '
-          + 'tụt ra dễ dàng. Nếu phải dùng lực là nhiệt chưa đủ.',
-        tool: 'Súng nhiệt hoặc bếp điện · găng tay chịu nhiệt',
-        warn: 'Không dùng đèn khò (đèn hàn) — đốt cháy nhôm cục bộ và biến dạng ổ đỡ',
-        tip: 'Nhỏ nước lên bề mặt: sôi lăn tăn là khoảng 100 °C' },
-      { title: 'Kiểm tra trục khuỷu',
-        detail: 'Đặt trục lên 2 mũi chống tâm hoặc 2 khối V, đo độ đảo bằng đồng hồ so. '
-          + 'Đo khe hở radial và axial của đầu to tay biên.',
-        tool: 'Đồng hồ so + chân đế từ · khối V',
-        tip: 'Độ đảo > 0,03 mm hoặc radial > 0,05 mm -> thay/ép lại trục khuỷu' },
-      { title: 'Thay ổ bi và phớt',
-        detail: 'Ép ổ bi mới vào lốc máy ĐÃ HÂM NÓNG, ép từ ngoài vào và chỉ đẩy vào vòng '
-          + 'NGOÀI của ổ bi. Phớt lắp sau, lò xo vòng hướng vào phía có nhớt.',
-        tool: 'Bộ cốc ép ổ bi (bearing driver) · súng nhiệt',
-        warn: 'Ép lực qua vòng TRONG của ổ bi làm mòn vết bi -> ổ bi kẹn sau vài trăm km' },
-      { title: 'Làm sạch mặt lắp · vệ sinh lưới lọc nhớt',
-        detail: 'Cạo hết keo cũ bằng dao cạo nhựa. Mặt lắp phải sạch, khô, không dầu. '
-          + 'Vệ sinh lưới lọc nhớt ở các-te.',
-        tool: 'Dao cạo nhựa · dung môi làm sạch · khí nén',
-        warn: 'Không dùng giấy nhám trên mặt lắp lốc máy' },
-      { title: 'Bôi keo làm kín · ghép 2 nửa · siết theo hình xoắn',
-        detail: 'Bôi một lớp keo làm kín MỎNG và LIÊN TỤC (loại dành cho lốc máy, vd '
-          + 'Three Bond 1215 / Hondabond). Lắp 2 chốt dẫn hướng. Ghép và siết tay tất cả '
-          + 'bu lông, sau đó siết lực theo hình xoắn từ trong ra ngoài, 2 lượt.',
-        torque: '≈ 10–12 N·m (M6), 2 lượt theo hình xoắn',
-        warn: 'Keo quá nhiều sẽ tràn vào trong và bít đường nhớt',
-        tip: 'Sau khi ghép, xoay trục khuỷu bằng tay — phải nhẹ và đều. Nếu chạn ở đâu, '
-          + 'tháo ra kiểm lại chứ đừng siết tiếp' },
-    ],
-
-    symptoms: [
-      { sign: 'Tiếng gõ nặng, trầm ở dưới máy, rõ khi tải',
-        cause: 'Ổ bi kim đầu to tay biên mòn/vỡ.',
-        fix: 'Tháo xy-lanh, lắc đầu to tay biên theo phương hướng kính. Có độ lắc = thay trục khuỷu.' },
-      { sign: 'Tiếng ru đều, tăng theo tốc độ, không theo tải',
-        cause: 'Ổ bi cầu đỡ trục khuỷu kẹn hoặc lỏng.',
-        fix: 'Nghe bằng tua-vít dài áp vào vỏ máy 2 bên. Xác nhận khi tách máy.' },
-      { sign: 'Rung mạnh bất thường ở một vòng tua nhất định',
-        cause: 'Trục khuỷu cong (độ đảo lớn) — thường sau một lần bó máy hoặc đóng búa vào bánh đà.',
-        fix: 'Đo độ đảo trục khuỷu. > 0,03 mm thì phải ép lại.' },
-      { sign: 'Rỉ nhớt dọc đường ghép 2 nửa lốc máy',
-        cause: 'Keo làm kín bị già · mặt lắp bị nảy xước trong lần sửa trước · siết sai lực/thứ tự.',
-        fix: 'Tách lại, kiểm độ phẳng mặt lắp, bôi keo mới. Vết nảy sâu thì phải gia công lại mặt lắp.' },
-      { sign: 'Rỉ nhớt ra vùng mâm lửa, lửa yếu, khó nổ',
-        cause: 'Phớt chặn nhớt trái hỏng (hoặc lắp ngược lò xo vòng).',
-        fix: 'Thay phớt; lắp lò xo vòng hướng vào phía có nhớt.' },
-      { sign: 'Xe không nổ / nổ dội sau khi thay CDI, bugi, cuộn lửa',
-        cause: 'Then bán nguyệt của bánh đà bị cắt -> bánh đà lệch góc -> sai thời điểm đánh lửa.',
-        fix: 'Tháo bánh đà kiểm then. Đây là nguyên nhân hay bị bỏ qua nhất.' },
-    ],
-
-    related: ['piston-cylinder', 'clutch', 'gearbox', 'lubrication', 'ignition-electric'],
+const checks = [
+  {
+    name: 'Bán kính khuỷu = nửa hành trình',
+    run() {
+      return { pass: Math.abs(CRANK_R - L.stroke / 2) < 1e-9,
+        msg: `${CRANK_R} mm = ${L.stroke} / 2` };
+    },
   },
+  {
+    name: 'Ổ bi khớp đường kính cổ trục',
+    run() {
+      const d = BR.rIn - CK.journalR;
+      return { pass: Math.abs(d) < 0.01,
+        msg: `Ø trong ổ bi ${BR.rIn * 2} mm / Ø cổ trục ${CK.journalR * 2} mm` };
+    },
+  },
+  {
+    name: 'Phớt nằm NGOÀI ổ bi (thứ tự lắp đúng)',
+    run() {
+      const leftOk = CK.sealLeft[1] <= CK.bearLeft[0] + 0.01;
+      const rightOk = CK.sealRight[0] >= CK.bearRight[1] - 0.01;
+      return { pass: leftOk && rightOk,
+        msg: `trái: phớt [${CK.sealLeft}] rồi ổ bi [${CK.bearLeft}] · `
+          + `phải: ổ bi [${CK.bearRight}] rồi phớt [${CK.sealRight}]` };
+    },
+  },
+  {
+    name: 'Má khuỷu nằm gọn giữa hai ổ bi',
+    run() {
+      const gapL = CK.webLeft[0] - CK.bearLeft[1];
+      const gapR = CK.bearRight[0] - CK.webRight[1];
+      return { pass: gapL > 1 && gapR > 0,
+        msg: `khe trái ${mm(gapL)} · khe phải ${mm(gapR)}` };
+    },
+  },
+  {
+    name: 'Má khuỷu không va thành lốc máy khi quay',
+    run() {
+      // Bán kính quét lớn nhất của má khuỷu (kể cả phần đối trọng dày thêm)
+      const sweep = CK.webR + 4.5;
+      // Khoảng từ tâm trục khuỷu tới thành trong lốc máy, theo phương hẹp nhất
+      const inner = Math.min(CS.w / 2 - CS.wallT - Math.abs(CS.cy),
+        CS.d / 2 - CS.wallT);
+      return { pass: inner - sweep > 3,
+        msg: `má quét R${sweep} mm / thành trong cách tâm ${inner.toFixed(1)} mm — `
+          + `khe ${mm(inner - sweep)}` };
+    },
+  },
+  {
+    name: 'Chốt khuỷu + tay biên không va lốc máy trong cả vòng quay',
+    run() {
+      // Điểm xa tâm nhất của cụm chốt khuỷu: bán kính khuỷu + bán kính đầu to
+      const sweep = CRANK_R + 17.5 + 1;
+      const inner = Math.min(CS.w / 2 - CS.wallT - Math.abs(CS.cy), CS.d / 2 - CS.wallT);
+      return { pass: inner - sweep > 3,
+        msg: `đầu to quét R${sweep.toFixed(1)} mm / thành trong ${inner.toFixed(1)} mm — `
+          + `khe ${mm(inner - sweep)}` };
+    },
+  },
+  {
+    name: 'Hai nửa lốc máy gặp nhau đúng tại mặt lắp x = 0',
+    run(asm) {
+      if (!asm) return { pass: false, msg: 'không có assembly' };
+      const bl = new THREE.Box3().setFromObject(asm.part('case-left').object);
+      const br = new THREE.Box3().setFromObject(asm.part('case-right').object);
+      const gap = br.min.x - bl.max.x;
+      return { pass: Math.abs(gap) < 0.5,
+        msg: `nửa trái tới x=${bl.max.x.toFixed(2)}, nửa phải từ x=${br.min.x.toFixed(2)} — `
+          + `chênh ${mm(Math.abs(gap))}` };
+    },
+  },
+  {
+    name: 'Then bán nguyệt không chồm quá mặt côn',
+    run() {
+      const stick = L.key.h;
+      return { pass: stick < 4, msg: `then nhô ${mm(stick)} khỏi cổ trục` };
+    },
+  },
+  {
+    // Nhóm kiểm quan trọng nhất của hệ thống này: bài toán cân bằng.
+    name: 'Cân bằng k = 0: lực NGANG bằng 0, lực đứng lớn nhất',
+    run() {
+      const p0 = forcePeaks(5000, 0);
+      const p1 = forcePeaks(5000, 1);
+      return { pass: p0.h < 1e-9 && p0.v > p1.v,
+        msg: `k=0 -> ngang ${N(p0.h)}, đứng ${N(p0.v)} · k=1 -> đứng ${N(p1.v)}` };
+    },
+  },
+  {
+    name: 'Cân bằng k = 1: triệt lực đứng bậc 1 nhưng sinh lực NGANG',
+    run() {
+      const p1 = forcePeaks(5000, 1);
+      const f = unbalancedForce(0, 5000, 1);
+      const ratio = CRANK_R / L.rodLen;
+      const expect = unbalancedForce(0, 5000, 1).base * ratio;
+      return { pass: p1.h > 100 && Math.abs(f.vertical - expect) < 1,
+        msg: `còn lực ngang ${N(p1.h)}; lực đứng chỉ còn thành phần bậc 2 `
+          + `(R/L = ${ratio.toFixed(3)}) = ${N(f.vertical)}` };
+    },
+  },
+  {
+    name: 'Không có k nào triệt được cả hai — k tối ưu nằm ở giữa',
+    run() {
+      const ok = BEST.k > 0.2 && BEST.k < 0.8;
+      const p0 = forcePeaks(5000, 0).tot;
+      const p1 = forcePeaks(5000, 1).tot;
+      return { pass: ok && BEST.peak > 1 && BEST.peak < Math.min(p0, p1),
+        msg: `k tối ưu ${BEST.k.toFixed(2)} cho đỉnh ${N(BEST.peak)}, thấp hơn cả `
+          + `k=0 (${N(p0)}) và k=1 (${N(p1)}) — nhưng KHÁC 0, tức không thể triệt hết` };
+    },
+  },
+  {
+    name: 'Quét 720°: không NaN, tay biên và chốt piston nhất quán',
+    run() {
+      let bad = null;
+      for (let th = 0; th < 720; th += 0.5) {
+        const py = pinYFromCrank(th);
+        const tilt = rodTilt(th);
+        if (!Number.isFinite(py) || !Number.isFinite(tilt)) bad ??= `NaN tại ${th}°`;
+        // đầu to tay biên phải trùng chốt khuỷu
+        const bigY = py - L.rodLen * Math.cos(tilt);
+        const bigZ = -L.rodLen * Math.sin(tilt);
+        const pinYc = CRANK_R * Math.cos((th * Math.PI) / 180);
+        const pinZc = CRANK_R * Math.sin((th * Math.PI) / 180);
+        if (Math.hypot(bigY - pinYc, bigZ - pinZc) > 1e-6) bad ??= `đầu to lệch chốt khuỷu tại ${th}°`;
+      }
+      return { pass: bad === null, msg: bad ?? 'đầu to tay biên trùng chốt khuỷu ở mọi góc' };
+    },
+  },
+];
+
+export default {
+  mode: '3d',
+  slug: 'crank-case',
+  parts: PARTS,
+  steps: STEPS,
+  createKinematics,
+  checks,
+  driveRange: 720,
+
+  frameDir: [0.52, 0.36, 0.78],
+  frameExclude: ['ctx-cylinder', 'ctx-piston', 'flywheel', 'flywheel-nut', 'oil-strainer', 'drain-bolt'],
+  contextCategory: 'Ngữ cảnh (không tháo)',
+  initialDrive: 60,
+  initialRpm: 30,
+
+  /** Chế độ Hoạt động: làm trong lốc máy để thấy trục khuỷu quay bên trong. */
+  opsHidden: ['case-bolts'],
+  opsGhost: ['case-left', 'case-right', 'ctx-cylinder'],
+
+  labels(asm, kin) {
+    const at = (x, y, z = 0) => new THREE.Vector3(x, y, z);
+    return [
+      { pos: () => at(0, CK.webR + 12), text: () => kin.state.strokeName.toUpperCase(), accent: true },
+      {
+        pos: () => at(0, kin.state.pinY + 14),
+        text: () => `chốt piston ${kin.state.pinY.toFixed(1)} mm`,
+      },
+      {
+        pos: () => at(24, -CK.webR - 14),
+        text: () => `đứng ${N(kin.state.fVertical)}`,
+        accent: () => Math.abs(kin.state.fVertical) > Math.abs(kin.state.fHorizontal),
+      },
+      {
+        pos: () => at(24, -CK.webR - 28),
+        text: () => `ngang ${N(kin.state.fHorizontal)}`,
+        accent: () => Math.abs(kin.state.fHorizontal) > Math.abs(kin.state.fVertical),
+      },
+      { pos: () => at(CK.camSprocket[0] - 4, CAM_PR + 6), text: 'nhông dây cam' },
+      { pos: () => at(0, CS.cy - CS.w / 2 + 10, CS.d / 2 + 6), text: 'mặt lắp 2 nửa · x = 0' },
+    ];
+  },
+
+  opsPanel(mount, kin, api) {
+    const strokes = el('div', { class: 'strokes' },
+      ...STROKES.map((s, i) => el('div', { 'data-i': i, text: s.split(' ')[0] })));
+
+    const angle = el('input', { type: 'range', min: 0, max: 720, step: 1, value: 60 });
+    const angleLb = el('b', { text: '60°' });
+    angle.addEventListener('input', () => { api.setPlaying(false); api.setDrive(+angle.value); });
+
+    const spd = el('input', { type: 'range', min: 8, max: 300, step: 2, value: api.rpm });
+    const spdLb = el('b', { text: `${api.rpm}` });
+    spd.addEventListener('input', () => { api.setRpm(+spd.value); spdLb.textContent = spd.value; });
+
+    const rpm = el('input', { type: 'range', min: 1000, max: 9000, step: 100, value: 5000 });
+    const rpmLb = el('b', { text: '5000 v/ph' });
+    rpm.addEventListener('input', () => { kin.setRpm(+rpm.value); rpmLb.textContent = `${rpm.value} v/ph`; });
+
+    const bal = el('input', { type: 'range', min: 0, max: 100, step: 1, value: 55 });
+    const balLb = el('b', { text: 'k = 0,55' });
+    bal.addEventListener('input', () => { kin.setBalance(+bal.value / 100); });
+
+    const playBtn = el('button', { class: 'tlbtn primary', text: '⏸', title: 'Chạy/dừng (Space)' });
+    playBtn.onclick = () => api.setPlaying(!api.playing);
+
+    const preset = (k, label, title) => el('button', { class: 'tlbtn', text: label, title,
+      onclick: () => { kin.setBalance(k); bal.value = String(Math.round(k * 100)); } });
+
+    const bar = (cls) => { const i = el('i'); return { node: el('div', { class: `bar ${cls}` }, i), i }; };
+    const bV = bar(''), bH = bar('ex');
+    const vV = el('span', { class: 'vl', text: '0 N' }), vH = el('span', { class: 'vl', text: '0 N' });
+    const pk = el('span', { class: 'vl', text: '0 N' });
+
+    mount.append(el('div', { class: 'opspanel' },
+      el('div', { class: 'field' }, el('label', {}, '4 kỳ đang diễn ra'), strokes),
+      el('div', { class: 'field' }, el('label', {}, 'Góc trục khuỷu', angleLb), angle),
+      el('div', { class: 'row', style: { display: 'flex', gap: '8px', alignItems: 'center' } },
+        playBtn,
+        el('span', { class: 'lb', style: { color: 'var(--fg-3)', fontSize: '11px' }, text: 'tốc độ quay' }),
+        spdLb,
+      ),
+      el('div', { class: 'field' }, el('label', {}, 'Vòng tua để TÍNH lực', rpmLb), rpm),
+
+      el('div', { class: 'field' },
+        el('label', {}, 'Hệ số cân bằng đối trọng', balLb), bal),
+      el('div', { class: 'row', style: { display: 'flex', gap: '6px', alignItems: 'center' } },
+        preset(0, 'k=0', 'Không có đối trọng'),
+        preset(0.55, 'k≈½', 'Cân bằng một nửa — cách làm thực tế'),
+        preset(1, 'k=1', 'Cân bằng hết lực đứng bậc 1'),
+      ),
+
+      el('div', { class: 'gauge' },
+        el('span', { class: 'lb', text: 'Lực ĐỨNG' }), bV.node, vV,
+        el('span', { class: 'lb', text: 'Lực NGANG' }), bH.node, vH,
+        el('span', { class: 'lb', text: 'Đỉnh tổng' }), el('div', {}), pk,
+      ),
+
+      el('div', { class: 'note', html:
+        '<b>Điều đáng xem nhất — vì sao xe một xy-lanh luôn rung.</b> Kéo thanh '
+        + '<b>hệ số cân bằng</b> từ 0 lên 1 và nhìn hai đồng hồ lực:<br>'
+        + '· <b>k = 0</b> (không đối trọng): lực NGANG = 0, lực ĐỨNG lớn nhất.<br>'
+        + '· <b>k = 1</b> (triệt hết lực đứng bậc 1): lực đứng gần hết, nhưng lực NGANG '
+        + 'xuất hiện đúng bằng lượng vừa triệt được.<br>'
+        + 'Đối trọng quay tròn nên nó không thể chỉ tác dụng theo một phương — nó luôn có '
+        + 'cả thành phần ngang. <b>Không có giá trị k nào làm cả hai bằng 0.</b>' }),
+
+      el('div', { class: 'note', html:
+        `<b>Nên chọn k bao nhiêu?</b> Quét số cho thấy đỉnh tổng nhỏ nhất ở khoảng `
+        + `<b>k = ${BEST.k.toFixed(2)}</b>. Đó là lý do thực tế hay cân bằng khoảng 50–70% — `
+        + 'chia đều độ rung cho hai phương thay vì dồn hết vào một phương. '
+        + 'Phần rung còn lại là ĐẶC TÍNH của động cơ một xy-lanh, không phải lỗi.' }),
+
+      el('div', { class: 'note', html:
+        `Tính với khối lượng chuyển động qua lại ≈ <b>${RECIP_MASS} kg</b> (piston + xéc-măng + `
+        + 'chốt + khoảng 1/3 tay biên). Lực tỉ lệ BÌNH PHƯƠNG vòng tua, nên tăng ga gấp đôi '
+        + 'thì lực rung gấp bốn.' }),
+
+      el('div', { class: 'note warn', html:
+        '<b>Bánh đà cũng góp phần</b> nhưng theo cách khác: nó không triệt lực rung, nó chỉ '
+        + 'giữ cho trục khuỷu quay ĐỀU giữa các kỳ. Động cơ một xy-lanh chỉ sinh công 1 lần '
+        + 'mỗi 2 vòng, ba kỳ còn lại là quán tính bánh đà kéo.' }),
+
+      el('div', { class: 'note', html:
+        '<b>Lốc máy đang được làm trong suốt</b> để thấy trục khuỷu và tay biên quay bên trong. '
+        + 'Tích lại trong danh mục bên phải nếu muốn thấy khối đặc.' }),
+    ));
+
+    function update() {
+      const s = kin.state;
+      angleLb.textContent = `${s.theta.toFixed(0)}°`;
+      if (document.activeElement !== angle) angle.value = String(s.theta);
+      playBtn.textContent = api.playing ? '⏸' : '▶';
+      balLb.textContent = `k = ${s.balance.toFixed(2).replace('.', ',')}`;
+      strokes.querySelectorAll('div').forEach((d, i) =>
+        d.setAttribute('aria-current', String(i === s.stroke)));
+      const scale = Math.max(1, s.peakTotal);
+      bV.i.style.width = `${Math.min(100, (Math.abs(s.fVertical) / scale) * 100).toFixed(1)}%`;
+      bH.i.style.width = `${Math.min(100, (Math.abs(s.fHorizontal) / scale) * 100).toFixed(1)}%`;
+      vV.textContent = N(s.fVertical);
+      vH.textContent = N(s.fHorizontal);
+      pk.textContent = N(s.peakTotal);
+    }
+    update();
+    return { update };
+  },
+
+  intro: {
+    title: 'Trục khuỷu RỜI và bài toán cân bằng',
+    html: `
+      <p><b>Trục khuỷu rời (built-up)</b> — đặc điểm quyết định mọi thứ. Xe máy một xy-lanh
+      nhỏ không dùng trục khuỷu liền khối với tay biên tháo được như ô tô. Thay vào đó hai
+      nửa má khuỷu được <b>ép nóng</b> vào chốt khuỷu, và tay biên cùng ổ bi kim nằm kẹt
+      trong đó. Cả khối là MỘT chi tiết.</p>
+      <p><b>Hệ quả thực tế:</b> ổ bi đầu to mòn thì không thể thay riêng bạc hay tay biên —
+      phải thay cả trục khuỷu hoặc đưa ra xưởng ép lại. Vì vậy một tiếng gõ dưới máy lại là
+      chẩn đoán đắt tiền. Trong mô hình này, <code>crank</code> là một chi tiết duy nhất gồm
+      cả tay biên, đúng như thực tế.</p>
+      <p><b>Mặt lắp vuông góc trục</b> tại x = 0, nên muốn vào tới trục khuỷu thì bắt buộc
+      phải TÁCH lốc máy — và muốn tách thì phải bỏ đầu bò, xy-lanh, piston, bộ nồi, mâm lửa,
+      bơm nhớt và cơ cấu sang số trước. Đó là công việc lớn nhất trên động cơ.</p>
+      <p><b>Về cân bằng:</b> bật chế độ Hoạt động và kéo thanh hệ số cân bằng. Bạn sẽ thấy
+      bằng số rằng động cơ một xy-lanh không thể cân bằng hoàn toàn — triệt lực đứng thì
+      sinh lực ngang. Đó là đặc tính, không phải lỗi chế tạo.</p>`,
+  },
+
+  symptoms: [
+    { sign: 'Tiếng gõ NẶNG, TRẦM ở dưới máy, rõ khi tải',
+      cause: 'Ổ bi kim đầu to tay biên mòn hoặc vỡ.',
+      fix: 'Tháo xy-lanh, lắc đầu to theo phương hướng kính. Có độ lắc = thay CẢ trục khuỷu '
+        + '(không thể thay riêng bạc trên trục khuỷu rời).' },
+    { sign: 'Tiếng ru đều, tăng theo tốc độ, KHÔNG theo tải',
+      cause: 'Ổ bi cầu đỡ trục khuỷu kẹn hoặc lỏng trong lốc máy.',
+      fix: 'Nghe bằng tua-vít dài áp vào vỏ máy hai bên để định vị bên nào. Xác nhận khi tách máy.' },
+    { sign: 'Rung mạnh bất thường ở một vòng tua nhất định',
+      cause: 'Trục khuỷu CONG (độ đảo lớn) — thường sau một lần bó máy hoặc sau khi ai đó '
+        + 'đóng búa vào bánh đà thay vì dùng vam rút.',
+      fix: 'Đo độ đảo trên khối V. > 0,03 mm thì phải ép lại.' },
+    { sign: 'Rỉ nhớt dọc đường ghép hai nửa lốc máy',
+      cause: 'Keo làm kín bị già · mặt lắp bị nảy xước trong lần sửa trước · siết sai lực '
+        + 'hoặc sai thứ tự (không theo hình xoắn).',
+      fix: 'Tách lại, kiểm độ phẳng mặt lắp, bôi keo mới, siết theo hình xoắn 2 lượt. '
+        + 'Vết nảy sâu thì phải gia công lại mặt lắp.' },
+    { sign: 'Lửa yếu + không sạc được ắc quy + đèn chập chờn CÙNG LÚC',
+      cause: 'Phớt chặn nhớt TRÁI hỏng -> nhớt ngấm vào mâm lửa. Một nguyên nhân, ba triệu chứng.',
+      fix: 'Thay phớt trái, lắp lò xo vòng hướng vào phía có nhớt. Vệ sinh và kiểm cách điện '
+        + 'cuộn stator (hệ thống 08).' },
+    { sign: 'Xe không nổ / nổ dội sau khi đã thay CDI, bugi, cuộn lửa',
+      cause: 'THEN BÁN NGUYỆT của bánh đà bị cắt -> bánh đà lệch góc -> sai thời điểm đánh lửa.',
+      fix: 'Tháo bánh đà kiểm then. Đây là nguyên nhân hay bị bỏ qua nhất vì chi tiết chỉ '
+        + 'bé bằng hạt gạo.' },
+    { sign: 'Sau khi lắp lại, xoay trục khuỷu bằng tay bị chạn',
+      cause: 'Thiếu chốt định vị lốc máy -> hai nửa lệch nhau -> kéo cong trục. Hoặc ổ bi lắp '
+        + 'chưa vào hết bệ.',
+      fix: 'Tháo ra kiểm chốt định vị và độ ngồi của ổ bi. TUYỆT ĐỐI không siết tiếp để '
+        + '"cho vào".' },
+  ],
 };

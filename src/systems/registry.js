@@ -40,7 +40,7 @@ export const SYSTEMS = [
     tags: ['bore 50mm', 'stroke 55,6mm', '3 xéc-măng'],
   },
   {
-    ix: '03', slug: 'crank-case', status: 'doc',
+    ix: '03', slug: 'crank-case', status: '3d',
     name: 'Trục khuỷu & lốc máy',
     nameEn: 'Crankshaft & crankcase',
     tagline: 'Trục khuỷu rời, ổ bi, bánh đà. Phải tách lốc máy mới vào được.',
