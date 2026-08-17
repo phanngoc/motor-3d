@@ -1,8 +1,9 @@
 # MOTOR3D — Mô hình 3D tham số hóa xe máy 4 kỳ
 
 Mô hình 3D **sinh toàn bộ hình học bằng code** (Three.js procedural, không import file CAD)
-cho một động cơ xe số 4 kỳ SOHC lớp **Honda Wave 110**, kèm animation **cách hoạt động**
-và animation **quy trình tháo lắp từng bước**. Mỗi hệ thống là một trang riêng.
+cho một xe số 4 kỳ SOHC lớp **Honda Wave 110** — từ đầu bò xuống tới khung sườn và phanh —
+kèm animation **cách hoạt động** và animation **quy trình tháo lắp từng bước**.
+**9 hệ thống, mỗi hệ thống một trang riêng.**
 
 Mục tiêu không phải đẹp như ảnh chụp, mà là **đúng quan hệ ăn khớp, đúng tỉ số truyền,
 đúng thứ tự tháo lắp** — đó mới là những thứ giúp hiểu cơ cấu.
@@ -29,6 +30,9 @@ Những gì đã **đơn giản hóa** (ghi rõ trong `layout.js` của từng h
 |---|---|---|
 | 01 Đầu bò | Buồng đốt là mặt cầu lõm, không phải squish-band thật. Đường nạp/xả là ống tròn thẳng. Chiều cao đầu bò hơi lớn hơn tỉ lệ thật để nhìn rõ cò mổ. Nhông cam 24T/12T thay vì 28T/14T. | **Tỉ số 2:1**. Tỉ số đòn cò mổ. Biên dạng vấu cam. |
 | 05 Hộp số | Biên dạng răng dạng thang gần đúng, không phải thân khai. Vấu cài then là chốt tròn + lỗ tròn suốt (thật là vấu vuông, lỗ bậc). Số răng chọn lại để tổng răng mỗi cặp = 47. | **Mọi cặp luôn ăn khớp**. Cài then chỉ KHÓA bánh răng vào trục. Trống số không bao giờ cho ăn 2 số. Bánh răng chạy lô vẫn quay khi cấp số đó không chọn. |
+| 07 Bộ hoà khí | Các đường khoan chéo bên trong thân chỉ dựng phần nhìn thấy. **Hằng số tỉ lệ của mô hình xăng được DÒ SỐ** để một bộ lành cho AFR 12,2–15,2 dọc đường tải — xem khối `CAL` trong `layout.js`. | **Van trượt CV đi theo lưu lượng khí, không theo tay ga** (giải từ cân bằng lực). Gíc-lơ chính và khe kim nối TIẾP nhau. Cỡ gíc-lơ đúng số hiệu thật (#75/#35). Dấu vết từng hỏng hóc theo dải ga. |
+| 08 Đánh lửa | Cuộn dây vẽ thành khối trụ, không dựng từng vòng. Bó dây vẽ theo sơ đồ nối, không theo đường luồn dây thật. | **Góc sớm suy ra từ hai sự thật vật lý tách bạch**. CDI là mạch SỐ (kích hoặc không). Điện áp cần phóng tia phụ thuộc áp suất xy-lanh. Cân bằng sạc. |
+| 09 Khung & phanh | Khung là các ống thẳng theo đường trục, không có gân và bát hàn. Nan hoa vẽ thẳng, không bắt chéo. Lốp là xuyến trơn. | **Hình học lái tự nhất quán** (độ lệch đuôi tính hai cách khớp nhau). Chuyển tải khi phanh. Tự cường hoá má dẫn/má bị. Độ võng sên suy ra từ cung quay gắp sau. |
 
 > ⚠️ **Số liệu lực siết / khe hở trong project là GIÁ TRỊ THAM KHẢO** cho lớp động cơ
 > Wave 110. Trước khi siết thực tế **bắt buộc** tra sổ tay dịch vụ đúng đời xe của bạn.
@@ -37,22 +41,24 @@ Những gì đã **đơn giản hóa** (ghi rõ trong `layout.js` của từng h
 
 ## 9 luồng — mỗi luồng một trang
 
-| # | Hệ thống | Trạng thái |
-|---|----------|-----------|
-| 01 | Đầu bò & cơ cấu cam–xupap | **3D + animation** · 30 chi tiết · 18 bước |
-| 02 | Xy-lanh, piston & tay biên | tài liệu |
-| 03 | Trục khuỷu & lốc máy | tài liệu |
-| 04 | Ly hợp (bộ nồi) | tài liệu |
-| 05 | Hộp số 4 cấp & cơ cấu sang số | **3D + animation** · 25 chi tiết · 18 bước |
-| 06 | Hệ thống bôi trơn | tài liệu |
-| 07 | Nạp – xả & cung cấp nhiên liệu | tài liệu |
-| 08 | Đánh lửa & hệ thống điện | tài liệu |
-| 09 | Khung, phuộc, phanh & truyền động cuối | tài liệu |
+Cả 9 hệ thống đều đã có 3D + animation tháo lắp + chế độ Hoạt động.
 
-"Tài liệu" = đã có đầy đủ **lý thuyết + danh mục chi tiết (vật liệu, thông số, chức năng,
-hư hỏng thường gặp) + quy trình tháo lắp từng bước (dụng cụ, lực siết, cảnh báo, mẹo)
-+ bảng chẩn đoán từ hiện tượng**. Chỉ chưa dựng hình học 3D. Nội dung đó viết đúng cấu
-trúc dữ liệu của trang 3D nên khi dựng 3D thì **copy thẳng sang, không viết lại**.
+| # | Hệ thống | Chi tiết | Bước | Phép kiểm | Tam giác | Điều đáng xem nhất |
+|---|----------|---------:|-----:|----------:|---------:|---|
+| 01 | Đầu bò & cơ cấu cam–xupap | 30 | 18 | 6 | 109.354 | Chuỗi cam→cò mổ→xupap, tỉ số 2:1 |
+| 02 | Xy-lanh, piston & tay biên | 16 | 15 | 11 | 39.524 | Chuyển động piston KHÔNG đối xứng |
+| 03 | Trục khuỷu & lốc máy | 16 | 18 | 12 | 58.900 | Không thể cân bằng hết máy một xy-lanh |
+| 04 | Ly hợp (bộ nồi) | 24 | 20 | 12 | 87.696 | Hai bộ nồi Ø92 buộc phải lệch nhau theo trục |
+| 05 | Hộp số 4 cấp & cơ cấu sang số | 25 | 18 | 12 | 73.304 | Mọi cặp luôn ăn khớp; trống số không cho ăn 2 số |
+| 06 | Hệ thống bôi trơn | 18 | 14 | 16 | 42.782 | Bơm tạo LƯU LƯỢNG, sức cản tạo áp suất |
+| 07 | Nạp – xả & cung cấp nhiên liệu | 28 | 13 | 22 | 32.074 | Máy chẩn đoán: mỗi hỏng hóc một dấu vết theo dải ga |
+| 08 | Đánh lửa & hệ thống điện | 22 | 12 | 19 | 36.616 | Ba hỏng hóc khác nhau, cùng một triệu chứng |
+| 09 | Khung, phuộc, phanh & truyền động cuối | 24 | 11 | 24 | 37.198 | Phanh là bài toán chuyển tải; tang trống là hộp kín |
+| | **Tổng** | **203** | **139** | **134** | | |
+
+Mỗi hệ thống có đủ: **lý thuyết + danh mục chi tiết (vật liệu, thông số, chức năng, hư
+hỏng thường gặp) + quy trình tháo lắp từng bước (dụng cụ, lực siết, cảnh báo, mẹo) +
+bảng chẩn đoán từ hiện tượng + hình học 3D + chế độ Hoạt động có số liệu tính được**.
 
 ---
 
@@ -161,30 +167,69 @@ thể nhìn bằng mắt**:
 [4] Kiểm tra kỹ thuật  các bất biến riêng của từng hệ thống (khai báo trong index.js)
 ```
 
-Kết quả hiện tại:
+Kết quả hiện tại: **9 hệ thống · 203 chi tiết · 139 bước · 134 phép kiểm — tất cả đạt.**
+Vài con số mà harness in ra, để thấy nó kiểm ở mức nào:
 
-**01 Đầu bò** — 30 chi tiết · 109.354 tam giác · 18 bước
+**01 Đầu bò**
 
 ```
 độ nâng max nạp/xả       5,450 mm   (cam 5,5 mm − khe hở nhiệt 0,05 mm)
 nạp/xả mở                211,5° trục khuỷu
-khe giữa 2 bệ xupap      4,00 mm
 tỉ số dây cam            2,000 : 1  (nhông 24/12)
-tỉ số đòn cò mổ          1,000
-khe vấu cam – trục cò    1,26 mm
 khe xupap – đỉnh piston  2,80 mm tại 3° trục khuỷu
 ```
 
-**05 Hộp số** — 25 chi tiết · 73.304 tam giác · 18 bước
+**03 Trục khuỷu** — cân bằng động cơ một xy-lanh, ở 5000 v/ph
+
+```
+k = 0     lực ngang 0 N      · lực đứng đỉnh 1985 N
+k = 1     lực ngang 1524 N   · lực đứng còn 461 N (chỉ còn bậc 2)
+k = 0,61  đỉnh tổng nhỏ nhất 1061 N — thấp hơn cả hai đầu nhưng KHÁC 0
+```
+
+**05 Hộp số**
 
 ```
 tổng răng mỗi cặp        47 · 47 · 47 · 47   (điều kiện ăn khớp thường xuyên)
 khoảng cách trục         37,600 mm hình học = 37,600 mm tính toán
-tỉ số                    2,917 > 1,938 > 1,350 > 0,958
-ở mo, vấu chưa ăn        còn dư 0,50 mm sau khi trừ chiều dài vấu
-ở vị trí ăn              thân cài then còn khe 1,50 mm · vấu cắm sâu 4,00 mm
 không bao giờ ăn 2 số    mọi góc trống chỉ có tối đa 1 cài then rời vị trí giữa
 chốt càng cua trong rãnh lệch 0 mm ở mọi góc
+```
+
+**06 Bôi trơn** — cùng vòng tua 3000, chỉ đổi sức cản đường nhớt
+
+```
+khe hở ổ đỡ mới    4,70 L/ph @ 292 kPa
+khe hở đã mòn      4,70 L/ph @ 102 kPa    <- lưu lượng KHÔNG đổi, áp suất tụt
+```
+
+**07 Bộ hoà khí** — dấu vết của từng hỏng hóc theo dải ga (AFR)
+
+```
+                  ga 3%   ga 25%  ga 50%  ga 90%
+lành               12,2    13,5    14,0    13,3
+tắc gíc-lơ chậm    99      16,4    14,6    13,4   chết không tải, ga to vẫn chạy
+tắc gíc-lơ chính   12,2    26,0    39,2    40,3   ngược lại hẳn
+lọc gió tắc        12,2     8,8     7,6     7,6   không tải bình thường
+phao ngấm xăng      8,3     8,8     9,4     9,0   sai toàn dải
+```
+
+**08 Đánh lửa** — góc sớm, tách rõ phần nào đến từ đâu
+
+```
+vòng tua   góc sớm   do TRỄ BÉN LỬA   do CHÁY LAN
+ 1400       10,8°        3,8°            22°
+ 8500       30,0°       22,9°            22°     <- toàn bộ mức tăng đến từ cột giữa
+```
+
+**09 Phanh** — từ 50 km/h, đường khô
+
+```
+chỉ phanh trước    0,84 g   11,6 m
+chỉ phanh sau      0,35 g   28,4 m
+cả hai phanh       0,90 g   10,9 m
+đổ đèo 4 phút      tang trống 639 °C còn 24 % momen · đĩa 225 °C còn 99 %
+độ võng sên        cần tối thiểu 22,8 mm — sách hãng ghi 25–35 mm
 ```
 
 Thêm phép kiểm mới: khai báo trong `checks` của `systems/<slug>/index.js`, trả về
@@ -192,22 +237,39 @@ Thêm phép kiểm mới: khai báo trong `checks` của `systems/<slug>/index.j
 
 ### Những lỗi harness này đã bắt được
 
-Đây là lý do nó tồn tại — 8 lỗi thật, trong đó 4 lỗi **thiết kế**, không phải lỗi code:
+Đây là lý do nó tồn tại. Cột "loại" đáng để ý: nhiều lỗi là lỗi **thiết kế** — hình vẽ
+chạy được, nhìn cũng bình thường, nhưng cái máy đó lắp thật thì không hoạt động.
 
-| Lỗi | Loại | Cách phát hiện |
-|---|---|---|
-| `mergeGeometries` fail khi trộn geometry indexed / non-indexed | code | harness |
-| Đường chạy xích dựng sai thứ tự đoạn tiếp tuyến | code | rà code |
-| 506k tam giác chỉ riêng dây cam | hiệu năng | harness đếm |
-| Badge cao 133px do trùng tên class `.doc` | CSS | soi computed style |
-| **Hai bệ xupap chỉ cách nhau 0,5 mm** (thật phải 3–4 mm) | thiết kế | screenshot → thành phép kiểm |
-| Mép nấm xupap chìa ra ngoài buồng đốt 0,5 mm | thiết kế | phép kiểm |
-| **Hành trình cài then 7 mm quá lớn** — thân cài then chọc vào thân bánh răng | thiết kế | phép kiểm |
-| **Chuyển số 2→3 làm cả hai cài then cùng rời vị trí giữa** = có khoảnh khắc ăn 2 số | thiết kế | phép kiểm quét 360° |
+| Lỗi | Hệ | Loại | Cách phát hiện |
+|---|---|---|---|
+| `mergeGeometries` fail khi trộn geometry indexed / non-indexed | lib | code | harness |
+| Đường chạy xích dựng sai thứ tự đoạn tiếp tuyến | 01 | code | rà code |
+| 506k tam giác chỉ riêng dây cam | 01 | hiệu năng | harness đếm |
+| Badge cao 133px do trùng tên class `.doc` | UI | CSS | soi computed style |
+| `.tlbtn` là nút vuông cố định 32×32 nên MỌI nút chữ ở mọi hệ đều tràn | UI | CSS | screenshot |
+| **Hai bệ xupap chỉ cách nhau 0,5 mm** (thật phải 3–4 mm) | 01 | thiết kế | screenshot → thành phép kiểm |
+| Mép nấm xupap chìa ra ngoài buồng đốt 0,5 mm | 01 | thiết kế | phép kiểm |
+| **Xéc-măng dầu tụt ra khỏi lòng xy-lanh ở điểm chết dưới** | 02 | thiết kế | phép kiểm |
+| Má khuỷu phải chạm ổ bi (khe 0 mm) | 03 | thiết kế | phép kiểm |
+| **Hành trình lá bố 1,9 mm < 6 mặt × 0,42 mm** — bóp hết tay vẫn không tách | 04 | thiết kế | phép kiểm |
+| Hai bộ nồi chạm nhau đúng tại x = 52 | 04 | thiết kế | phép kiểm hộp bao thật |
+| **Hành trình cài then 7 mm quá lớn** — thân cài then chọc vào thân bánh răng | 05 | thiết kế | phép kiểm |
+| **Chuyển số 2→3 làm cả hai cài then cùng rời vị trí giữa** = có khoảnh khắc ăn 2 số | 05 | thiết kế | phép kiểm quét 360° |
+| Van an toàn nằm chồng vào thân bơm nhớt (cách tâm 22,6 mm < bán kính 25 mm) | 06 | thiết kế | phép kiểm va chạm |
+| Bướm ga Ø24,8 mm trong lỗ thông Ø23,1 mm — đĩa to hơn lỗ | 07 | thiết kế | phép kiểm |
+| Mức xăng trùng đúng cao độ gíc-lơ chính nên gíc-lơ không ngập xăng | 07 | thiết kế | phép kiểm |
+| **Cuộn kích lọt trong vành rôto** (khe −6,5 mm) | 08 | thiết kế | phép kiểm |
+| Cụm cuộn kích R73,5 không đủ chỗ trong vỏ máy trái R65 | 08 | thiết kế | phép kiểm |
+| **`tubeYZ()` quay ngược dấu → khung sườn, phuộc, gắp, giảm chấn bị lật theo trục Z** | 09 | code | phép kiểm hộp bao |
+| Bánh xe, đĩa phanh, tang trống, dĩa sên bị đặt ở y = 0 thay vì cao độ trục bánh | 09 | code | phép kiểm hộp bao |
+| **Hình học lái không tự nhất quán**: rake 26,5° + offset 53 mm không cho trục bánh ở đúng chỗ đã đặt | 09 | thiết kế | phép kiểm hai cách tính độ lệch đuôi |
+| `controls.maxDistance = 1600 mm` cố định → hệ khung xe kẹt ở mức phóng quá gần | core | code | screenshot |
 
-Lỗi cuối được sửa bằng cách **tuần tự hóa** trong `forkOffset()`: càng đang về mo chạy
-trong nửa đầu bước chuyển, càng đang rời mo chạy trong nửa sau. Vì rãnh trống số được
-sinh ra từ hàm đó, hình học tự động mang đúng logic — đúng như rãnh trống thật được phay.
+Lỗi đáng nhớ nhất là **ăn 2 số khi chuyển 2→3** ở hệ 05. Nó được sửa bằng cách **tuần tự
+hóa** trong `forkOffset()`: càng đang về mo chạy trong nửa đầu bước chuyển, càng đang rời mo
+chạy trong nửa sau. Vì rãnh trống số được sinh ra từ chính hàm đó, hình học tự động mang
+đúng logic — đúng như rãnh trống thật được phay. Đây là ví dụ rõ nhất cho nguyên tắc
+"một hàm cho cả hình lẫn số" ở dưới.
 
 ---
 
@@ -238,6 +300,8 @@ Quy ước trục (dùng chung toàn project, đơn vị **mm**):
 
 - `extrudeY(shape, h)`: shape(u,v) → world(x=u, z=v), kéo theo +Y
 - `extrudeX(shape, l)`: shape(u,v) → world(z=−u, y=v), kéo theo +X
+  → muốn đặt tâm hình tại (y, z) THẬT thì toạ độ shape phải là `[-z, y]`. Nhầm chỗ này là
+  cả bánh xe rơi xuống mặt đất; các hệ dùng nhiều đều có helper `uv(y, z)` cho việc đó.
 - `lathe(profile)`: profile `[[r, y], …]` duyệt **ngược chiều kim đồng hồ trong mặt phẳng
   (r,y)** với vật liệu ở bên trong — với hình trụ đơn giản chỉ cần xếp từ dưới lên.
 - `groovedDrum({...})`: hình trụ có rãnh xoắn thật, `xAt(θ)` định nghĩa tâm rãnh.
@@ -249,5 +313,6 @@ Quy ước trục (dùng chung toàn project, đơn vị **mm**):
 - **Three.js r180** — render + sinh geometry. Không dependency nào khác ở runtime.
 - **Vite 7** multi-page. Mỗi trang hệ thống là một HTML riêng; module hệ thống được
   code-split và nạp theo nhu cầu.
-- Trang tài liệu tải **17 kB** (không kéo Three.js). Trang 3D tải **~160 kB** gzip.
 - Không có bước build CAD, không cần cài OpenSCAD/FreeCAD.
+- `core/ui.js` cố ý KHÔNG import Three.js (phần cần Three.js nằm riêng ở `core/labels.js`),
+  nên trang chủ và các panel không kéo theo cả engine 3D.

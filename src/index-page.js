@@ -63,9 +63,13 @@ wrap.append(el('div', { class: 'sect' },
   el('div', { class: 'two' },
     el('div', {},
       el('h3', { text: 'Chế độ "Hoạt động"' }),
-      el('p', { html: 'Cơ cấu chạy theo một biến điều khiển: hệ thống 01 là <b>góc trục khuỷu</b>, '
-        + 'hệ thống 05 là <b>cấp số + tốc độ trục sơ cấp</b>. Các đồng hồ bên cạnh đọc số ra từ '
-        + '<b>chính hình học đã dựng</b>, nên không bao giờ lệch với hình.' }),
+      el('p', { html: 'Mỗi hệ thống chạy theo <b>biến điều khiển riêng của nó</b>: hệ 01–03 là '
+        + 'góc trục khuỷu, hệ 05 là cấp số, hệ 07 là tay ga, hệ 09 là lực bóp tay và lực đạp chân. '
+        + 'Các đồng hồ bên cạnh đọc số ra từ <b>chính hình học đã dựng</b>, nên không bao giờ lệch '
+        + 'với hình.' }),
+      el('p', { html: 'Bốn hệ thống có <b>bảng gây hỏng hóc</b>: tắc gíc-lơ, bô-bin yếu, lọc gió '
+        + 'tắc, đổ đèo mòn phanh… Mỗi hỏng hóc để lại một <b>dấu vết riêng theo dải làm việc</b>, '
+        + 'và chính dấu vết đó mới là căn cứ chẩn đoán — không phải triệu chứng chung chung.' }),
       el('h3', { text: 'Chế độ "Tháo lắp"' }),
       el('p', { html: 'Timeline dưới khung 3D đi theo từng bước tháo thật. Bấm một bước trong danh sách '
         + 'để nhảy đến; nút <b>↺</b> chạy ngược = xem thứ tự <b>lắp lại</b>. Mỗi bước có dụng cụ, '
