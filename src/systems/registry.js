@@ -33,7 +33,7 @@ export const SYSTEMS = [
     tags: ['SOHC', '2 xupap', 'dây cam 2:1', 'căn cam'],
   },
   {
-    ix: '02', slug: 'piston-cylinder', status: 'doc',
+    ix: '02', slug: 'piston-cylinder', status: '3d',
     name: 'Xy-lanh, piston & tay biên',
     nameEn: 'Cylinder, piston & connecting rod',
     tagline: 'Biến áp suất cháy thành chuyển động quay. Nhóm chi tiết mài mòn nhanh nhất.',
