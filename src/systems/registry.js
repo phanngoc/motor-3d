@@ -75,7 +75,7 @@ export const SYSTEMS = [
     tags: ['carb/PGM-FI', 'lọc gió', 'ống xả'],
   },
   {
-    ix: '08', slug: 'ignition-electric', status: 'doc',
+    ix: '08', slug: 'ignition-electric', status: '3d',
     name: 'Đánh lửa & hệ thống điện',
     nameEn: 'Ignition & electrical system',
     tagline: 'Mâm lửa, bánh đà, CDI/ECU, cuộn sạc, mô tơ đề, bugi.',
