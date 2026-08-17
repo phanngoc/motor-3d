@@ -47,7 +47,7 @@ export const SYSTEMS = [
     tags: ['trục khuỷu rời', 'ổ bi cầu', 'tách lốc'],
   },
   {
-    ix: '04', slug: 'clutch', status: 'doc',
+    ix: '04', slug: 'clutch', status: '3d',
     name: 'Ly hợp (bộ nồi)',
     nameEn: 'Centrifugal + wet multi-plate clutch',
     tagline: 'Hai bộ ly hợp nối tiếp: li tâm tự động + đa đĩa cắt khi sang số.',

@@ -1,232 +1,370 @@
 /**
- * Hệ thống 04 — Ly hợp (bộ nồi).
+ * index.js — Module hệ thống 04: Ly hợp (bộ nồi).
  */
 
-export default {
-  mode: 'doc',
-  slug: 'clutch',
-  doc: {
-    lead: 'Xe số có đặc điểm ít người để ý: nó có HAI bộ ly hợp nối tiếp nhau. Một bộ li tâm '
-      + 'tự động (thay chức năng tay nắm của xe côn tay) và một bộ đa đĩa ướt chỉ cắt '
-      + 'trong khoảnh khắc bàn đạp số. Hiểu được phân công này là hiểu vì sao xe số '
-      + 'sang số được mà không cần bóp côn.',
+import * as THREE from 'three';
+import { el } from '../../core/ui.js';
+import {
+  L, PRIMARY, PRIMARY_RATIO, CENTER_DISTANCE, centEngage, weightRadius,
+  plateLayout, stackThickness, frictionFaces,
+} from './layout.js';
+import { PARTS } from './parts.js';
+import { STEPS } from './steps.js';
+import { createKinematics } from './kinematics.js';
 
-    theory: [
-      {
-        h: 'Hai bộ ly hợp, hai nhiệm vụ hoàn toàn khác nhau',
-        p: [
-          '<b>Bộ nồi trước (ly hợp li tâm)</b> — nằm trên đầu trục khuỷu. Khi máy chạy không tải, '
-          + 'lực li tâm chưa thắng được lò xo kéo, ba quả búa li tâm nhả ra, momen KHÔNG truyền đi '
-          + '-> xe đứng yên dù đang gài số. Khi lên ga, lực li tâm ép ba búa vào trong lòng chuông '
-          + '-> ma sát truyền momen -> xe đi. Đây chính là thứ thay thế "tay nắm ly hợp".',
-          '<b>Bộ nồi sau (ly hợp nhiều đĩa ướt)</b> — nằm trên trục số sơ cấp. Nó LUÔN đóng. '
-          + 'Chỉ khi bàn đạp bàn đạp số, một cơ cấu đẩy gãy mở đĩa ly hợp này ra trong '
-          + 'khoảng ~0,3 giây để răng số có thể cài/nhả mà không bị tải.',
-        ],
-      },
-      {
-        h: 'Vì sao xe số sang số được không cần bóp côn',
-        ol: [
-          'Bàn đạp bàn đạp số xuống.',
-          'Trục bàn đạp quay -> đẩy một thanh đẩy (lifter) -> nén tấm ép của ly hợp đa đĩa -> '
-          + '<b>ly hợp mở</b>, momen từ động cơ bị ngắt.',
-          'Bàn đạp tiếp tục đi -> trống số quay -> càng cua dịch cài then sang cấp số mới.',
-          'Nhả chân -> lò xo đưa bàn đạp về -> ly hợp đóng lại -> momen truyền trở lại.',
-        ],
-        p: ['Toàn bộ chuỗi này xảy ra trong một lần đạp chân. Nếu bộ phận mở ly hợp bị '
-          + 'sai điều chỉnh (điều chỉnh sai khe hở cạnh mở), số sẽ "kêu" khi vào và cài then '
-          + 'mòn rất nhanh.'],
-      },
-      {
-        h: 'Ly hợp ƯỚT: đĩa ma sát ngâm trong nhớt',
-        p: [
-          'Các đĩa ly hợp nằm trong nhớt động cơ. Nhớt làm nguội và làm mềm quá trình đóng.',
-          '<b>Vì vậy loại nhớt rất quan trọng.</b> Nhớt ô tô có phụ gia giảm ma sát '
-          + '(nhãn "Energy Conserving" / API SN có ký hiệu tiết kiệm nhiên liệu) sẽ làm '
-          + 'ly hợp TRƯỢT. Xe máy phải dùng nhớt đạt chuẩn <b>JASO MA / MA2</b> — chuẩn này '
-          + 'bảo đảm hệ số ma sát đủ cho ly hợp ướt.',
-        ],
-      },
-      {
-        h: 'Trượt ly hợp và bám ly hợp — hai lỗi trái ngược',
-        ul: [
-          '<b>Trượt</b> (vòng tua lên mà xe không tăng tương ứng): đĩa ma sát mòn, lò xo yếu, '
-          + 'dùng sai loại nhớt, hoặc điều chỉnh cạnh mở quá căng (ly hợp không đóng hết).',
-          '<b>Bám / không nhả</b> (khó vào số, xe giật khi vào số 1): đĩa thép bị cong hoặc '
-          + 'đĩa ma sát dính nhau do để lâu, hoặc cạnh mở điều chỉnh quá lỏng (ly hợp không mở hết).',
-        ],
-      },
-      {
-        h: 'Thứ tự xếp đĩa: thép – ma sát – thép – ma sát...',
-        p: [
-          'Các đĩa thép có vấu ngoài ăn vào chuông ly hợp (quay theo động cơ). Các đĩa ma sát '
-          + 'có răng trong ăn vào moay-ơ (quay theo trục số). Chúng xếp xen kẽ.',
-          'Khi lắp lại phải xen kẽ ĐÚNG và thường <b>đĩa ma sát nằm ngoài cùng ở cả hai đầu</b>. '
-          + 'Ngâm đĩa ma sát mới trong nhớt 15–20 phút trước khi lắp — đĩa khô lắp vào sẽ chạy '
-          + 'khô trong vài giây đầu tiên và mòn ngay.',
-        ],
-      },
-    ],
+const CR = L.crank, MS = L.main, CE = L.cent, WE = L.wet, LI = L.lifter;
+const mm = (v) => `${v.toFixed(2)} mm`;
+const pct = (x) => `${Math.max(0, Math.min(100, x * 100)).toFixed(0)}%`;
 
-    specs: [
-      ['Kiểu', 'Ly hợp li tâm tự động + ly hợp nhiều đĩa ướt'],
-      ['Số đĩa ma sát', '3–4 đĩa (tuỳ đời)'],
-      ['Số đĩa thép', '3–4 đĩa'],
-      ['Chiều dày đĩa ma sát', '≈ 2,9–3,0 mm mỗi đĩa (giới hạn mòn ≈ 2,6 mm)'],
-      ['Độ cong đĩa thép', '≤ 0,20 mm (đo bằng căn phẳng + lá căn)'],
-      ['Chiều dài tự do lò xo ly hợp', 'so với giới hạn trong sổ tay — thay CẢ BỘ nếu yếu'],
-      ['Má ly hợp li tâm', 'giới hạn mòn theo độ dày bề mặt ma sát'],
-      ['Lực siết đai ốc bộ nồi', '≈ 50–55 N·m (dùng vam giữ, không dùng tuýp hơi gõ)'],
-      ['Chuẩn nhớt', 'JASO MA hoặc MA2 — KHÔNG dùng nhớt ô tô tiết kiệm nhiên liệu'],
-    ],
+/** Các chi tiết thuộc từng bộ ly hợp — dùng cho phép kiểm bao hình. */
+const CENT_IDS = ['cent-drum', 'cent-spider', 'cent-weights', 'cent-springs', 'cent-nut'];
+const WET_IDS = ['basket', 'hub', 'friction-plates', 'steel-plates',
+  'pressure-plate', 'clutch-springs', 'clutch-bolts'];
 
-    parts: [
-      { name: 'Vỏ ly hợp (nắp che bên phải)', nameEn: 'Right crankcase cover', qty: 1,
-        material: 'Nhôm đúc',
-        fn: 'Che kín khoang ly hợp, giữ nhớt.',
-        fail: 'Rỉ nhớt ở mép (gioăng chai) — dễ nhận vì vết nhớt chảy xuống gác chân phải.' },
-      { name: 'Bộ nồi trước (ly hợp li tâm)', nameEn: 'Centrifugal clutch assembly', qty: 1,
-        material: 'Chuông thép + 3 quả búa có má ma sát + lò xo kéo',
-        spec: 'Lắp trên đầu trục khuỷu bên phải',
-        fn: 'Tự động ngắt truyền động khi máy chạy không tải; tự động đóng khi lên ga. '
-          + 'Đây là thứ thay thế tay nắm ly hợp của xe côn tay.',
-        fail: 'Má mòn -> trượt, xe "gào" mà không đi. Lò xo yếu -> xe bò đi ngay ở vòng không tải '
-          + '(nguy hiểm khi để xe nổ máy).' },
-      { name: 'Chuông ly hợp li tâm', nameEn: 'Centrifugal clutch drum', qty: 1,
-        material: 'Thép',
-        fn: 'Mặt trong là bề mặt ma sát cho 3 quả búa.',
-        fail: 'Mặt trong bị bóng / lõm thành rãnh -> trượt dù má còn dày.' },
-      { name: 'Bộ nồi sau (ly hợp đa đĩa)', nameEn: 'Wet multi-plate clutch assembly', qty: 1,
-        material: 'Moay-ơ thép + chuông ngoài + tấm ép',
-        spec: 'Lắp trên trục số sơ cấp',
-        fn: 'Ngắt truyền động trong khoảnh khắc sang số.',
-        fail: 'Chuông bị khía rãnh ở vấu -> đĩa thép vướng, ly hợp không nhả hết.' },
-      { name: 'Đĩa ma sát (3–4)', nameEn: 'Friction plates', qty: 4,
-        material: 'Nền thép phủ vật liệu ma sát, răng TRONG ăn vào moay-ơ',
-        spec: 'Dày ≈ 2,9 mm, giới hạn mòn ≈ 2,6 mm',
-        fn: 'Truyền momen bằng ma sát. Ngâm nhớt trước khi lắp.',
-        fail: 'Mòn mỏng -> trượt. Cháy đen (đậm màu, mùi khét) -> đã bị trượt lâu, thay cả bộ.' },
-      { name: 'Đĩa thép (3–4)', nameEn: 'Steel plates', qty: 4,
-        material: 'Thép, vấu NGOÀI ăn vào chuông',
-        spec: 'Độ cong tối đa ≈ 0,20 mm',
-        fn: 'Bề mặt đối tiếp của đĩa ma sát, dẫn nhiệt ra nhớt.',
-        fail: 'Cong -> ly hợp không nhả hết (bám). Kiểm bằng căn phẳng + lá căn.' },
-      { name: 'Lò xo ly hợp (4)', nameEn: 'Clutch springs', qty: 4,
-        material: 'Thép lò xo',
-        fn: 'Ép tấm ép vào bộ đĩa — quyết định momen tối đa ly hợp truyền được.',
-        fail: 'Yếu -> trượt khi tải. THAY CẢ BỘ, không thay lẻ từng cái (lệch lực ép).' },
-      { name: 'Tấm ép ly hợp', nameEn: 'Clutch pressure plate', qty: 1,
-        material: 'Thép dập',
-        fn: 'Truyền lực lò xo đều vào bộ đĩa; bị thanh đẩy nén khi mở ly hợp.' },
-      { name: 'Thanh đẩy / bi mở ly hợp', nameEn: 'Clutch lifter rod & ball', qty: 1,
-        material: 'Thép tôi',
-        fn: 'Truyền chuyển động từ cơ cấu bàn đạp số đến tấm ép để MỞ ly hợp.',
-        fail: 'Mòn đầu -> hành trình mở giảm -> ly hợp không mở hết -> số kêu khi vào.' },
-      { name: 'Cạnh mở ly hợp + vít điều chỉnh', nameEn: 'Clutch lifter arm & adjuster', qty: 1,
-        material: 'Thép',
-        spec: 'Có vít + đai ốc chặn để điều chỉnh khe hở hành trình mở',
-        fn: 'Biến chuyển động quay của trục bàn đạp số thành chuyển động đẩy dọc trục.',
-        fail: 'Điều chỉnh SAI là nguyên nhân phổ biến nhất của "vào số kêu" và "ly hợp trượt". '
-          + 'Quá căng -> trượt; quá lỏng -> không mở hết.' },
-      { name: 'Đai ốc bộ nồi + long đen khoá', nameEn: 'Clutch nut & lock washer', qty: 2,
-        material: 'Thép',
-        spec: 'Siết ≈ 50–55 N·m; một số đời là REN NGƯỢC',
-        fn: 'Giữ bộ nồi trên trục.',
-        fail: 'Long đen khoá dùng lại (không bẻ lại vấu khoá) -> đai ốc tự nới -> phá cả bộ nồi. '
-          + 'Long đen khoá BẮT BUỘC thay mới.' },
-      { name: 'Bánh răng sơ cấp (nhông dưới)', nameEn: 'Primary drive gear', qty: 1,
-        material: 'Thép tôi',
-        fn: 'Truyền momen từ bộ nồi li tâm sang chuông ly hợp đa đĩa (giảm tốc sơ cấp).',
-        fail: 'Mòn răng -> kêu ru ở vòng tua trung bình.' },
-      { name: 'Gioăng vỏ ly hợp', nameEn: 'Right cover gasket', qty: 1,
-        material: 'Giấy amiăng / vật liệu đàn',
-        fn: 'Làm kín vỏ ly hợp.', fail: 'Thay mới mỗi lần tháo.' },
-    ],
+/** Hộp bao theo X của một nhóm chi tiết, lấy từ hình học THẬT. */
+function groupBox(asm, ids) {
+  const box = new THREE.Box3();
+  for (const id of ids) if (asm.parts.has(id)) box.expandByObject(asm.part(id).object);
+  return box;
+}
 
-    steps: [
-      { title: 'Xả nhớt máy',
-        detail: 'Bắt buộc — khoang ly hợp ngâm nhớt.',
-        tool: 'Tuýp 12 mm · khay', torque: 'Bu lông xả: ≈ 24 N·m' },
-      { title: 'Tháo gác chân phải / bàn đạp thắng (nếu vướng)',
-        detail: 'Tuỳ đời xe, một số phải tháo gác chân để rút được vỏ ly hợp ra.',
-        tool: 'Tuýp 12–14 mm' },
-      { title: 'Tháo bu lông vỏ ly hợp · nhấc vỏ ra',
-        detail: 'Nới đều đối xứng. Ghi nhớ vị trí bu lông khác chiều dài. Gõ nhẹ búa cao su nếu dính gioăng.',
-        tool: 'Tuýp 8 mm · búa cao su',
-        warn: 'Nhớt còn đọng lại trong vỏ sẽ chảy ra — để khay sẵn' },
-      { title: 'Tháo gioăng + chốt dẫn hướng',
-        detail: 'Gioăng thay mới. Chốt dẫn hướng dễ tuột, giữ lại.' },
-      { title: 'Điều chỉnh cạnh mở về trạng thái lỏng nhất',
-        detail: 'Nới đai ốc chặn, vặn vít điều chỉnh ra hết để cạnh mở không còn nén tấm ép — '
-          + 'để tháo bộ đĩa dễ hơn.',
-        tool: 'Tuốc-nơ-vít · chìa khoá 10 mm' },
-      { title: 'Nới 4 bu lông lò xo ly hợp theo hình chéo',
-        detail: 'Nới từng chút một theo hình chéo, 2–3 lượt. Nới hết một cái trước sẽ làm '
-          + 'tấm ép vướng và biến dạng.',
-        tool: 'Tuýp 8 mm',
-        torque: 'Khi lắp: ≈ 12 N·m theo hình chéo',
-        warn: 'Không nới hết một bu lông rồi mới sang cái khác' },
-      { title: 'Lấy tấm ép · lấy lần lượt các đĩa',
-        detail: 'Lấy ra và <b>xếp theo đúng thứ tự</b> trên bàn: đĩa ma sát / đĩa thép xen kẽ. '
-          + 'Chụp một bức ảnh trước khi lấy.',
-        tip: 'Xếp theo đúng thứ tự là cách nhanh nhất để lắp lại không sai' },
-      { title: 'Đo đĩa ma sát và độ cong đĩa thép',
-        detail: 'Đo chiều dày từng đĩa ma sát bằng thước cặp. Đặt từng đĩa thép lên căn phẳng, '
-          + 'nhét lá căn vào chỗ vồng nhất để đo độ cong.',
-        tool: 'Thước cặp · căn phẳng · lá căn',
-        tip: 'Mòn quá giới hạn -> thay CẢ BỘ cả đĩa ma sát và đĩa thép' },
-      { title: 'Đo chiều dài tự do lò xo ly hợp',
-        detail: 'So với giới hạn trong sổ tay. Lò xo yếu là nguyên nhân trượt âm thầm nhất.',
-        tool: 'Thước cặp', tip: 'Thay cả bộ 4 cái, không thay lẻ' },
-      { title: 'Giữ bộ nồi · nới đai ốc bộ nồi',
-        detail: 'Dùng vam giữ chuyên dụng để giữ chuông, rồi nới đai ốc. Bẻ phẳng vấu khoá '
-          + 'của long đen trước khi nới.',
-        tool: 'Vam giữ bộ nồi · tuýp lớn (24–39 mm tuỳ đời)',
-        warn: 'MỘT SỐ ĐỜI LÀ REN NGƯỢC — thử chiều trước khi ra lực. '
-          + 'Không nhét tua-vít vào răng để giữ (bẻ răng)' },
-      { title: 'Tháo bộ nồi sau (đa đĩa) và bộ nồi trước (li tâm)',
-        detail: 'Rút cả bộ ra khỏi trục. Kiểm mặt trong chuông li tâm và độ dày má ba quả búa.',
-        tool: 'Vam rút nếu chặt',
-        tip: 'Ghi lại thứ tự long đen / vòng đệm — mỗi vòng đều có chỗ của nó' },
-      { title: 'Lắp lại: ngâm đĩa ma sát trong nhớt 15–20 phút',
-        detail: 'Đĩa ma sát mới lắp khô sẽ chạy khô ngay giây đầu tiên và mòn nhanh. '
-          + 'Ngâm nhớt mới trước khi lắp.',
-        tip: 'Xen kẽ đúng thứ tự; thường đĩa MA SÁT ở ngoài cùng cả hai đầu' },
-      { title: 'Điều chỉnh khe hở cạnh mở ly hợp',
-        detail: 'Vặn vít điều chỉnh vào đến khi cảm thấy chạn (bắt đầu tiếp xúc), rồi nới ra '
-          + 'khoảng 1/8–1/4 vòng, giữ vít và siết đai ốc chặn. Sau đó thử trên đường.',
-        tool: 'Tuốc-nơ-vít · chìa khoá 10 mm',
-        warn: 'Đây là bước quyết định xe có vào số êm hay không. Quá căng -> trượt; '
-          + 'quá lỏng -> vào số kêu' },
-      { title: 'Lắp vỏ · đổ nhớt mới đạt chuẩn JASO MA/MA2',
-        detail: 'Gioăng mới, siết bu lông đối xứng. Đổ đúng 0,8–0,9 L nhớt xe máy đạt JASO MA/MA2.',
-        torque: 'Bu lông vỏ: ≈ 10 N·m',
-        warn: 'Nhớt ô tô "tiết kiệm nhiên liệu" sẽ làm ly hợp ướt TRƯỢT — không dùng' },
-    ],
-
-    symptoms: [
-      { sign: 'Vòng tua tăng mà xe không tăng tốc tương ứng (trượt ly hợp)',
-        cause: 'Đĩa ma sát mòn · lò xo ly hợp yếu · dùng sai loại nhớt (nhớt ô tô) · '
-          + 'cạnh mở điều chỉnh quá căng · má li tâm mòn.',
-        fix: 'Kiểm loại nhớt TRƯỚC (rẻ nhất và hay đúng nhất). Rồi điều chỉnh cạnh mở. '
-          + 'Rồi mới mở ra đo đĩa và lò xo.' },
-      { sign: 'Vào số "kêu"/"cục" mạnh, nhất là số 1',
-        cause: 'Ly hợp không MỞ hết: cạnh mở điều chỉnh quá lỏng, thanh đẩy mòn, '
-          + 'hoặc đĩa thép bị cong làm đĩa dính nhau.',
-        fix: 'Điều chỉnh lại cạnh mở. Nếu không hết -> mở ra đo độ cong đĩa thép.' },
-      { sign: 'Xe bò đi khi vừa nổ máy, chưa lên ga',
-        cause: 'Lò xo kéo của ly hợp li tâm yếu hoặc đứt, hoặc ba quả búa bị kẹt.',
-        fix: 'Tháo bộ nồi trước, kiểm lò xo và hành trình ba quả búa. Lỗi này nguy hiểm — '
-          + 'sửa ngay.' },
-      { sign: 'Nhảy số (số tự nhảy về mo) khi tăng tốc',
-        cause: 'Cài then/răng số mòn vát đầu — hậu quả LÂU DÀI của việc ly hợp không mở hết '
-          + 'khi sang số.',
-        fix: 'Sửa gốc: điều chỉnh đúng cạnh mở. Răng đã mòn thì phải thay (hệ thống 05).' },
-      { sign: 'Mùi khét, nhớt đổi màu nhanh bất thường',
-        cause: 'Ly hợp đang trượt liên tục và đốt nóng nhớt.',
-        fix: 'Dừng xe, kiểm ngay. Chạy tiếp sẽ cháy đĩa và làm bẩn cả đường nhớt.' },
-    ],
-
-    related: ['gearbox', 'crank-case', 'lubrication'],
+const checks = [
+  {
+    name: 'Khoảng cách trục khớp với module × tổng răng',
+    run() {
+      const geom = Math.abs(CR.y - MS.y);
+      return { pass: Math.abs(geom - CENTER_DISTANCE) < 1e-9,
+        msg: `hình học ${geom.toFixed(3)} mm / tính toán ${CENTER_DISTANCE.toFixed(3)} mm `
+          + `(module ${PRIMARY.module} × ${PRIMARY.zDrive + PRIMARY.zDriven} răng / 2)` };
+    },
   },
+  {
+    name: 'Tỉ số sơ cấp trong khoảng thực tế của xe số',
+    run() {
+      return { pass: PRIMARY_RATIO > 2.8 && PRIMARY_RATIO < 4.0,
+        msg: `${PRIMARY_RATIO.toFixed(3)} : 1 (${PRIMARY.zDrive}/${PRIMARY.zDriven})` };
+    },
+  },
+  {
+    // Đây là phép kiểm quan trọng nhất của hệ thống này — nó xác nhận cái lý do
+    // hình dạng bộ nồi phải như vậy.
+    name: 'Hai bộ ly hợp không giao nhau (bài toán bao hình)',
+    run(asm) {
+      if (!asm) return { pass: false, msg: 'không có assembly' };
+      const bc = groupBox(asm, CENT_IDS);
+      const bw = groupBox(asm, WET_IDS);
+      if (bc.isEmpty() || bw.isEmpty()) return { pass: false, msg: 'thiếu chi tiết' };
+      const sumR = CE.drum.rOut + WE.basket.rOut;
+      const gapX = bc.min.x - bw.max.x;
+      const needSeparation = sumR > Math.abs(CR.y - MS.y);
+      return { pass: !needSeparation || gapX > 1,
+        msg: `tổng bán kính ${sumR} mm ${needSeparation ? '>' : '≤'} khoảng cách trục `
+          + `${Math.abs(CR.y - MS.y).toFixed(1)} mm -> ${needSeparation ? 'buộc phải' : 'không cần'} `
+          + `rời nhau theo X · khe thực tế ${mm(gapX)} `
+          + `(đa đĩa tới x=${bw.max.x.toFixed(1)}, li tâm từ x=${bc.min.x.toFixed(1)})` };
+    },
+  },
+  {
+    name: 'Ở trạng thái NHẢ, quả búa không chạm chuông',
+    run() {
+      const gap = CE.drum.rIn - weightRadius(0);
+      return { pass: gap > 2, msg: `khe ${mm(gap)} (búa R${weightRadius(0)} / chuông R${CE.drum.rIn})` };
+    },
+  },
+  {
+    name: 'Ở trạng thái ĂN, quả búa chạm chuông',
+    run() {
+      const gap = CE.drum.rIn - weightRadius(1);
+      return { pass: gap >= 0 && gap < 0.5,
+        msg: `khe ${mm(gap)} — phải gần 0 để truyền được momen` };
+    },
+  },
+  {
+    name: 'Mức đóng li tâm đơn điệu tăng theo vòng tua',
+    run() {
+      let prev = -1, bad = null;
+      for (let rpm = 0; rpm <= 9000; rpm += 25) {
+        const e = centEngage(rpm);
+        if (!Number.isFinite(e) || e < prev - 1e-9) bad ??= `tại ${rpm} v/ph`;
+        prev = e;
+      }
+      const e0 = centEngage(CE.rpmStart - 1), e1 = centEngage(CE.rpmFull + 1);
+      if (e0 > 1e-6) bad ??= `đã đóng ${pct(e0)} khi chưa tới ${CE.rpmStart} v/ph`;
+      if (e1 < 1 - 1e-6) bad ??= `chưa đóng hết ở trên ${CE.rpmFull} v/ph`;
+      return { pass: bad === null,
+        msg: bad ?? `nhả hẳn dưới ${CE.rpmStart} v/ph, ăn hẳn trên ${CE.rpmFull} v/ph` };
+    },
+  },
+  {
+    name: 'Bộ đĩa xếp xen kẽ và đĩa MA SÁT nằm ở cả hai đầu',
+    run() {
+      const p = plateLayout(0);
+      const alt = p.every((x, i) => x.isFriction === (i % 2 === 0));
+      const ends = p[0].isFriction && p[p.length - 1].isFriction;
+      return { pass: alt && ends,
+        msg: `${p.map((x) => (x.isFriction ? 'M' : 'T')).join('')} `
+          + `(${WE.stack.friction.count} ma sát + ${WE.stack.steel.count} thép)` };
+    },
+  },
+  {
+    name: 'Đĩa ma sát ăn moay-ơ và không chạm chuông',
+    run() {
+      const f = WE.stack.friction;
+      const toHub = WE.hub.rSpline - f.rIn;          // răng trong phải chồm vào then hoa
+      const toBasket = WE.basket.rIn - f.rOut;       // mép ngoài phải hở với chuông
+      return { pass: toHub > 0 && toBasket > 1,
+        msg: `chồm vào then hoa moay-ơ ${mm(toHub)} · hở với chuông ${mm(toBasket)}` };
+    },
+  },
+  {
+    name: 'Đĩa thép ăn chuông và không chạm moay-ơ',
+    run() {
+      const s = WE.stack.steel;
+      const toBasket = s.tabR - WE.basket.rIn;       // vấu phải chồm vào rãnh chuông
+      const toHub = s.rIn - WE.hub.rSpline;          // mép trong phải hở với moay-ơ
+      return { pass: toBasket > 0 && toHub > 1,
+        msg: `vấu chồm vào rãnh chuông ${mm(toBasket)} · hở với moay-ơ ${mm(toHub)}` };
+    },
+  },
+  {
+    name: 'Hành trình mở đủ tách mọi cặp mặt ma sát',
+    run() {
+      const faces = frictionFaces();
+      const need = faces * WE.stack.gapOpen;
+      return { pass: LI.travel >= need,
+        msg: `hành trình ${LI.travel} mm ≥ ${faces} khe × ${WE.stack.gapOpen} mm = ${need.toFixed(2)} mm` };
+    },
+  },
+  {
+    name: 'Bộ đĩa + tấm ép vừa trong lòng chuông',
+    run() {
+      const p = plateLayout(1);
+      const endOpen = p[p.length - 1].x + p[p.length - 1].t;
+      const room = WE.basket.cupX[1] - WE.stack.x0;
+      const used = (endOpen - WE.stack.x0) + WE.pressure.t;
+      return { pass: used < room,
+        msg: `dùng ${mm(used)} / lòng chuông ${mm(room)} `
+          + `(bộ đĩa dày ${mm(stackThickness())} + tấm ép, đã tính cả khe hở khi mở)` };
+    },
+  },
+  {
+    name: 'Thanh đẩy chạy được trong lòng trục sơ cấp rỗng',
+    run() {
+      const clear = MS.bore - LI.rod.r;
+      const reaches = LI.rod.x1 >= plateLayout(0).reduce((a, p) => Math.max(a, p.x + p.t), 0);
+      return { pass: clear > 0.2 && reaches,
+        msg: `khe thanh đẩy – lòng trục ${mm(clear)} · đầu thanh tới x=${LI.rod.x1} mm` };
+    },
+  },
+];
+
+export default {
+  mode: '3d',
+  slug: 'clutch',
+  parts: PARTS,
+  steps: STEPS,
+  createKinematics,
+  checks,
+  driveRange: 360,
+
+  /**
+   * Nhìn gần VUÔNG GÓC với trục (chủ yếu từ +Z): trục X chạy ngang màn hình nên
+   * thấy ngay hai bộ ly hợp nằm LỆCH NHAU dọc trục, và hai trục nằm trên hai
+   * độ cao khác nhau. Đó là điều đầu tiên phải nhận ra ở hệ thống này.
+   * Nhìn chéo từ +X thì hai bộ chồng lên nhau, rất khó đọc.
+   */
+  frameDir: [0.20, 0.26, 0.94],
+  frameExclude: ['ctx-case', 'ctx-crank', 'ctx-mainshaft', 'lifter-arm', 'lifter-cam'],
+  contextCategory: 'Ngữ cảnh (không tháo)',
+  initialRpm: 1200,
+
+  /** Chế độ Hoạt động: bỏ vỏ đi. Chuông làm trong để thấy bộ đĩa và quả búa. */
+  opsHidden: ['cover', 'cover-gasket', 'cover-bolts', 'ctx-case'],
+  opsGhost: ['cent-drum', 'basket'],
+
+  labels(asm, kin) {
+    const at = (x, y, z = 0) => new THREE.Vector3(x, y, z);
+    return [
+      {
+        pos: () => at(CE.drum.x1 + 8, CR.y + CE.drum.rOut - 6),
+        text: () => `li tâm ${pct(kin.state.centEngage)}`,
+        accent: () => kin.state.centEngage > 0.02,
+      },
+      {
+        pos: () => at(WE.basket.cupX[1] + 6, MS.y + WE.basket.rOut + 8),
+        text: () => (kin.state.wetOpen > 0.02
+          ? `đa đĩa MỞ ${pct(kin.state.wetOpen)}` : 'đa đĩa đóng'),
+        accent: () => kin.state.wetOpen > 0.02,
+      },
+      { pos: () => at(L.primary.x1 + 4, CR.y - 24), text: `sơ cấp ${PRIMARY_RATIO.toFixed(2)}:1` },
+      {
+        pos: () => at(MS.x0 + 18, MS.y - WE.basket.rOut - 10),
+        text: () => `trục sơ cấp ${kin.state.rpmMain.toFixed(0)} v/ph`,
+        accent: () => kin.state.moving,
+      },
+    ];
+  },
+
+  opsPanel(mount, kin, api) {
+    const rpm = el('input', { type: 'range', min: 800, max: 8000, step: 50, value: 1200 });
+    const rpmLb = el('b', { text: '1200 v/ph' });
+    rpm.addEventListener('input', () => { kin.setRpm(+rpm.value); rpmLb.textContent = `${rpm.value} v/ph`; });
+
+    const pedal = el('input', { type: 'range', min: 0, max: 100, step: 1, value: 0 });
+    const pedalLb = el('b', { text: 'nhả chân' });
+    pedal.addEventListener('input', () => kin.setPedal(+pedal.value / 100));
+
+    const kick = el('button', { class: 'tlbtn', text: '⤓', title: 'Đạp số một nhịp rồi nhả' });
+    let kickT = null;
+    kick.onclick = () => {
+      if (kickT) clearInterval(kickT);
+      let t = 0;
+      kickT = setInterval(() => {
+        t += 0.05;
+        // đạp xuống rồi nhả — mô phỏng một nhịp đạp số thật
+        const v = t < 0.5 ? t / 0.5 : Math.max(0, 1 - (t - 0.5) / 0.5);
+        kin.setPedal(v);
+        pedal.value = String(Math.round(v * 100));
+        if (t >= 1) { clearInterval(kickT); kickT = null; kin.setPedal(0); pedal.value = '0'; }
+      }, 50);
+    };
+
+    const idle = el('button', { class: 'tlbtn', text: 'KT', title: 'Về vòng không tải (1400)' });
+    idle.onclick = () => { kin.setRpm(1400); rpm.value = '1400'; rpmLb.textContent = '1400 v/ph'; };
+    const rev = el('button', { class: 'tlbtn', text: 'GA', title: 'Lên ga (4000)' });
+    rev.onclick = () => { kin.setRpm(4000); rpm.value = '4000'; rpmLb.textContent = '4000 v/ph'; };
+
+    const bar = (cls) => { const i = el('i'); return { node: el('div', { class: `bar ${cls}` }, i), i }; };
+    const bCent = bar(''), bWet = bar('ex');
+    const vCent = el('span', { class: 'vl', text: '0%' }), vWet = el('span', { class: 'vl', text: '0%' });
+
+    const rows = [
+      ['Trục khuỷu', () => kin.state.rpm],
+      ['Chuông li tâm', () => kin.state.rpmDrum],
+      ['Giỏ ly hợp', () => kin.state.rpmBasket],
+      ['Trục sơ cấp', () => kin.state.rpmMain],
+    ].map(([k, f]) => {
+      const v = el('td', { class: 'mono', text: '0' });
+      return { row: el('tr', {}, el('td', { text: k }), v), v, f };
+    });
+    const table = el('table', { class: 'spec' },
+      el('thead', {}, el('tr', {}, el('th', { text: 'Khâu' }), el('th', { text: 'v/ph' }))),
+      el('tbody', {}, ...rows.map((r) => r.row)));
+
+    const status = el('div', { class: 'note' });
+
+    mount.append(el('div', { class: 'opspanel' },
+      el('div', { class: 'field' }, el('label', {}, 'Vòng tua động cơ', rpmLb), rpm),
+      el('div', { class: 'row', style: { display: 'flex', gap: '8px', alignItems: 'center' } },
+        idle, rev,
+        el('span', { class: 'lb', style: { color: 'var(--fg-3)', fontSize: '11px' },
+          text: `đóng từ ${CE.rpmStart}–${CE.rpmFull} v/ph` }),
+      ),
+      el('div', { class: 'field' }, el('label', {}, 'Bàn đạp số', pedalLb), pedal),
+      el('div', { class: 'row', style: { display: 'flex', gap: '8px', alignItems: 'center' } },
+        kick, el('span', { class: 'lb', style: { color: 'var(--fg-3)', fontSize: '11px' },
+          text: 'đạp một nhịp rồi nhả' }),
+      ),
+      el('div', { class: 'gauge' },
+        el('span', { class: 'lb', text: 'Li tâm đóng' }), bCent.node, vCent,
+        el('span', { class: 'lb', text: 'Đa đĩa mở' }), bWet.node, vWet,
+      ),
+      table,
+      status,
+
+      el('div', { class: 'note', html:
+        '<b>Thử thứ nhất — vì sao xe đứng yên khi nổ máy:</b> để vòng tua ở 1400 v/ph. '
+        + `Li tâm đóng 0% vì lực li tâm chưa thắng được lò xo kéo (ngưỡng ${CE.rpmStart} v/ph). `
+        + 'Chuông li tâm đứng, trục sơ cấp đứng — xe không đi dù đang gài số.' }),
+
+      el('div', { class: 'note', html:
+        '<b>Thử thứ hai — lên ga:</b> kéo lên 3000 v/ph. Ba quả búa bung ra, ép vào mặt trong '
+        + 'chuông, momen truyền đi. Lực li tâm tỉ lệ <b>bình phương</b> vòng tua nên chỉ cần '
+        + 'lên ga một chút là đóng dứt khoát — không lừng khừng như bóp côn tay.' }),
+
+      el('div', { class: 'note', html:
+        '<b>Thử thứ ba — đạp số:</b> giữ vòng tua 3000 rồi bấm <b>⤓</b>. Cam xoay, thanh đẩy '
+        + 'chạy trong lòng trục sơ cấp rỗng, đẩy tấm ép ra, bộ đĩa tách nhau. '
+        + '<b>Giỏ ly hợp vẫn quay</b> (nó nối cứng với động cơ) nhưng trục sơ cấp dừng. '
+        + 'Đó chính là khoảnh khắc cài then trong hộp số dịch chỗ được.' }),
+
+      el('div', { class: 'note warn', html:
+        '<b>Đây là chỗ nối sang hệ thống 05.</b> Nếu cần mở điều chỉnh quá lỏng, ly hợp không '
+        + 'mở hết, hai mặt vấu cài then đập vào nhau khi còn chênh tốc độ — lâu dài làm vấu '
+        + 'vạt tròn và sinh ra <b>nhảy số</b>. Thay bánh răng mà không sửa cần mở thì hỏng lại.' }),
+
+      el('div', { class: 'note', html:
+        '<b>Vỏ đang bị ẩn</b> và hai chuông đang được làm trong suốt để thấy bộ đĩa với quả búa. '
+        + 'Tích lại trong danh mục bên phải nếu muốn thấy chi tiết đặc.' }),
+    ));
+
+    function update() {
+      const s = kin.state;
+      if (document.activeElement !== rpm) { rpm.value = String(s.rpm); rpmLb.textContent = `${s.rpm.toFixed(0)} v/ph`; }
+      pedalLb.textContent = s.pedal < 0.02 ? 'nhả chân' : `đạp ${pct(s.pedal)}`;
+      bCent.i.style.width = pct(s.centEngage);
+      bWet.i.style.width = pct(s.wetOpen);
+      vCent.textContent = pct(s.centEngage);
+      vWet.textContent = pct(s.wetOpen);
+      for (const r of rows) r.v.textContent = r.f().toFixed(0);
+      const msg = s.wetOpen > 0.5
+        ? '<b>Ly hợp đa đĩa đang MỞ</b> — momen bị ngắt, đây là lúc sang số được.'
+        : s.centEngage < 0.02
+          ? '<b>Li tâm đang NHẢ</b> — máy chạy mà xe đứng yên, đúng như khi để nổ máy tại chỗ.'
+          : s.centEngage < 0.98
+            ? `<b>Li tâm đang TRƯỢT</b> — mất ${s.slipCent.toFixed(0)} v/ph, phần này biến thành nhiệt.`
+            : '<b>Truyền động thông suốt</b> — li tâm ăn hẳn, đa đĩa đóng.';
+      status.innerHTML = msg;
+    }
+    update();
+    return { update };
+  },
+
+  intro: {
+    title: 'Hai bộ ly hợp nối tiếp nhau',
+    html: `
+      <p>Xe số có <b>hai</b> bộ ly hợp nối tiếp, mỗi bộ một nhiệm vụ khác nhau hoàn toàn:</p>
+      <p><b>Bộ nồi trước — ly hợp li tâm</b>, trên trục khuỷu. Tự động ngắt khi máy chạy
+      không tải, tự động đóng khi lên ga. Đây là thứ thay thế tay nắm ly hợp của xe côn tay.</p>
+      <p><b>Bộ nồi sau — ly hợp đa đĩa ướt</b>, trên trục sơ cấp hộp số. Nó <b>luôn đóng</b>,
+      chỉ mở trong khoảnh khắc bạn đạp số để răng số cài/nhả không bị tải.</p>
+      <p><b>Vì sao bộ nồi có hình dạng lạ như vậy:</b> hai bộ đều Ø~92 mm nhưng khoảng cách
+      giữa trục khuỷu và trục sơ cấp chỉ ${CENTER_DISTANCE.toFixed(1)} mm — nhỏ hơn tổng hai
+      bán kính. Chúng <b>không thể</b> nằm cùng một mặt phẳng, buộc phải lệch nhau dọc trục.
+      Cái ống dài của chuông li tâm mang bánh răng sơ cấp chạy vào trong chính là hệ quả
+      bắt buộc của bài toán bao hình đó.</p>
+      <p><b>Và vì sao trục sơ cấp phải rỗng:</b> cơ cấu mở nằm bên trái, tấm ép nằm bên phải,
+      nên phải có một thanh đẩy xuyên qua lòng trục.</p>`,
+  },
+
+  symptoms: [
+    { sign: 'Vòng tua tăng mà xe không tăng tốc tương ứng (trượt)',
+      cause: 'Đĩa ma sát mòn · lò xo ly hợp yếu · dùng sai loại nhớt (nhớt ô tô có phụ gia '
+        + 'giảm ma sát) · cần mở điều chỉnh quá căng · má búa li tâm mòn.',
+      fix: 'Kiểm LOẠI NHỚT trước — rẻ nhất và hay đúng nhất, phải đạt JASO MA/MA2. '
+        + 'Rồi điều chỉnh cần mở. Rồi mới mở ra đo đĩa và lò xo.' },
+    { sign: 'Vào số "kêu"/"cục" mạnh, nhất là số 1 khi xe đứng',
+      cause: 'Ly hợp đa đĩa không MỞ hết: cần mở điều chỉnh quá lỏng, thanh đẩy hoặc bi mòn dẹt, '
+        + 'đĩa thép cong làm đĩa dính nhau, rãnh chuông bị khía.',
+      fix: 'Điều chỉnh cần mở trước. Nếu không hết -> mở ra đo độ cong đĩa thép và kiểm rãnh chuông.' },
+    { sign: 'Xe bò đi khi vừa nổ máy, chưa lên ga',
+      cause: 'Lò xo kéo của ly hợp li tâm yếu hoặc đứt, hoặc ba quả búa bị kẹt ở vị trí bung.',
+      fix: 'Tháo bộ nồi trước, kiểm lò xo và hành trình búa. Lỗi này NGUY HIỂM (xe tự trôi '
+        + 'khi để nổ máy) — sửa ngay, không đi tiếp.' },
+    { sign: 'Nhảy số khi tăng tốc',
+      cause: 'Vấu cài then trong hộp số đã mòn vạt cạnh. Nguyên nhân GỐC gần như luôn là '
+        + 'ly hợp không mở hết khi sang số.',
+      fix: 'Phải sửa CẢ HAI: thay cặp bánh răng mòn (hệ thống 05) và điều chỉnh lại cần mở. '
+        + 'Chỉ thay bánh răng thì vài nghìn km sau hỏng lại.' },
+    { sign: 'Mùi khét, nhớt đổi màu rất nhanh',
+      cause: 'Ly hợp đang trượt liên tục và đốt nóng nhớt.',
+      fix: 'Dừng xe kiểm ngay. Chạy tiếp sẽ cháy đĩa và làm bẩn cả đường nhớt (hệ thống 06).' },
+    { sign: 'Có tiếng va lạch cạch khi mở/thả ga ở vòng tua thấp',
+      cause: 'Then hoa mâm mang búa mòn · bạc trong ống moay-ơ mòn làm chuông li tâm lắc · '
+        + 'răng bánh răng sơ cấp mòn.',
+      fix: 'Mở vỏ ly hợp, lắc từng cụm bằng tay để tìm chỗ rơ.' },
+    { sign: 'Rỉ nhớt ở mép vỏ ly hợp, nhớt chảy xuống gác chân phải',
+      cause: 'Gioăng vỏ chai, hoặc mép vỏ nhôm biến dạng do siết bu lông lệch tay.',
+      fix: 'Thay gioăng mới, siết ≈ 10 N·m ĐỐI XỨNG. Kiểm độ phẳng mép vỏ.' },
+  ],
 };
