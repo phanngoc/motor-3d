@@ -67,6 +67,16 @@ export function mountSystemPage(sys) {
     setDrive(v) { S.drive = v; kin.drive(S.drive, 0); },
     setRpm(v) { S.rpm = v; },
     setPlaying(v) { S.playing = v; },
+    /**
+     * Canh camera vào một nhóm chi tiết cụ thể. Cần cho những hệ thống có HAI
+     * chủ đề ở hai tỉ lệ rất khác nhau (ví dụ hệ bôi trơn: mạch nhớt dài 200 mm
+     * và cụm bơm chỉ Ø50 mm — canh chung thì bơm bé tí).
+     * Gọi không tham số thì canh lại như mặc định.
+     */
+    frameOn(ids, dir) {
+      viewer.frame(ids?.length ? subsetTarget(ids) : frameTarget(),
+        { dir: dir ?? sys.frameDir });
+    },
   };
 
   // ── Panel chế độ Hoạt động ─────────────────────────────────────────────────
@@ -177,6 +187,16 @@ export function mountSystemPage(sys) {
    * piston, trục khuỷu) — nếu tính cả chúng thì khung nhìn bị kéo rộng ra và
    * cụm chi tiết cần xem thành bé tí.
    */
+  /** Nhóm tạm chỉ gồm các chi tiết được nêu tên — dùng cho api.frameOn(). */
+  function subsetTarget(ids) {
+    const g = new THREE.Group();
+    for (const id of ids) {
+      const p = asm.parts.get(id);
+      if (p) g.add(p.object.clone());
+    }
+    return g.children.length ? g : asm.group;
+  }
+
   function frameTarget() {
     const g = new THREE.Group();
     const ex = new Set(sys.frameExclude ?? []);

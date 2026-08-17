@@ -1,226 +1,465 @@
 /**
- * Hệ thống 06 — Hệ thống bôi trơn.
+ * index.js — Module hệ thống 06: Hệ thống bôi trơn.
+ *
+ * Hệ thống này khác các hệ trước ở chỗ điều đáng học nhất không phải hình dáng
+ * chi tiết mà là một quan hệ SỐ: bơm sinh LƯU LƯỢNG, còn ÁP SUẤT do sức cản
+ * đường nhớt phía sau sinh ra. Toàn bộ bảng điều khiển được làm để chứng minh
+ * điều đó bằng cách cho kéo hai thanh riêng biệt và xem hai đồng hồ phản ứng.
  */
 
-export default {
-  mode: 'doc',
-  slug: 'lubrication',
-  doc: {
-    lead: 'Hệ thống nhỏ nhất nhưng gây nhiều hư hỏng nhất khi bỏ bê. Điểm quan trọng '
-      + 'nhất cần biết: <b>xe số phổ thông KHÔNG có lọc nhớt dạng giấy</b> — nó chỉ có '
-      + 'một lưới lọc và một bộ lọc li tâm. Điều đó quyết định hoàn toàn chu kỳ thay nhớt.',
+import * as THREE from 'three';
+import { el } from '../../core/ui.js';
+import {
+  L, ROTOR_RATIO, PUMP_DRIVE_RATIO, PUMP_CC_PER_REV, outerCenter,
+  flowLpm, pressureKpa, reliefOpen, filterEfficiency, sludgeToKm, OIL_PATH,
+} from './layout.js';
+import { PARTS, OIL_CURVE } from './parts.js';
+import { STEPS } from './steps.js';
+import { createKinematics } from './kinematics.js';
 
-    theory: [
-      {
-        h: 'Nhớt làm 5 việc, không phải 1',
-        ol: [
-          '<b>Bôi trơn</b> — tách hai bề mặt kim loại bằng một màng dầu.',
-          '<b>Làm mát</b> — đưa nhiệt từ piston, xupap, ly hợp ra vỏ máy. Trên động cơ làm mát '
-          + 'bằng không khí, đây là đường tản nhiệt <b>chính</b> của những chỗ không tiếp xúc gió.',
-          '<b>Làm sạch</b> — cuốn theo muội than và mạt kim loại về lọc.',
-          '<b>Làm kín</b> — bít khe hở giữa xéc-măng và thành xy-lanh, góp phần giữ áp suất nén.',
-          '<b>Truyền ma sát cho ly hợp ướt</b> — đây là lý do nhớt xe máy phải đạt chuẩn JASO MA.',
-        ],
-      },
-      {
-        h: 'Đường nhớt: từ các-te lên đến đầu bò',
-        ol: [
-          'Nhớt đọng ở đáy lốc máy (các-te ướt).',
-          'Bơm bánh răng (dẫn động từ trục khuỷu) hút nhớt qua <b>lưới lọc</b>.',
-          'Nhớt đẩy vào <b>bộ lọc li tâm</b> — một buồng quay theo trục khuỷu, lực li tâm ném '
-          + 'các hạt nặng ra thành buồng, nhớt sạch hơn đi ra ở giữa.',
-          'Nhớt theo <b>đường khoan trong trục khuỷu</b> đến ổ bi đầu to tay biên.',
-          'Một nhánh lên <b>cổ trục cam và trục cò mổ</b> qua rãnh/lỗ khoan trong đầu bò.',
-          'Nhớt rơi tự do về các-te. Ly hợp, hộp số, dây cam được bôi trơn chủ yếu bằng '
-          + '<b>nhớt bắt toé</b> (splash) do các bánh răng đánh lên.',
-        ],
-      },
-      {
-        h: 'Bộ lọc li tâm — và vì sao phải vệ sinh nó',
-        p: [
-          'Bộ lọc li tâm là một buồng quay gắn trên trục khuỷu bên phải. Nhớt vào giữa, quay '
-          + 'theo, các hạt kim loại và muội than nặng hơn bị ném ra sát thành và <b>dính lại ở đó</b>.',
-          'Nó không có lõi lọc thay được. Sau nhiều nghìn km, lớp cặn dày lên ~2–5 mm và bộ lọc '
-          + '<b>hết tác dụng hoàn toàn</b>. Từ đó trở đi, nhớt bẩn chảy trực tiếp đến ổ bi.',
-          '<b>Vì vậy:</b> vệ sinh bộ lọc li tâm mỗi ~10.000–15.000 km (mỗi lần mở vỏ ly hợp). '
-          + 'Đây là công việc bị bỏ qua nhiều nhất trên xe số, và là nguyên nhân âm thầm của '
-          + '"máy nhanh xuống" dù vẫn thay nhớt định kỳ.',
-        ],
-      },
-      {
-        h: 'Không có lọc giấy => chu kỳ thay nhớt ngắn hơn',
-        p: [
-          'Trên động cơ có lọc giấy, lọc giữ lại hạt bẩn đến ~10 µm. Xe số chỉ có lưới lọc '
-          + '(giữ hạt lớn) + lọc li tâm (giữ hạt nặng). Hạt bẩn nhỏ vẫn tuần hoàn trong nhớt.',
-          'Đó là lý do sổ tay xe số thường ghi thay nhớt mỗi <b>1.000–2.000 km</b> chứ không phải '
-          + '5.000–10.000 km như ô tô. Kéo dài chu kỳ là cách nhanh nhất để mòn ổ bi đầu to tay biên.',
-        ],
-      },
-      {
-        h: 'Đọc độ nhớt: 10W-30 nghĩa là gì',
-        ul: [
-          '<b>10W</b> — độ nhớt khi LẠNH ("W" = winter). Số nhỏ = lỏng hơn khi nguội = dễ bơm '
-          + 'đi khắp máy trong những giây đầu tiên sau khi đề. Phần lớn mài mòn xảy ra ở giây đó.',
-          '<b>30</b> — độ nhớt ở 100 °C. Số lớn hơn giữ màng dầu tốt hơn khi nóng nhưng tăng tổn thất '
-          + 'ma sát và làm máy nặng hơn.',
-          '<b>JASO MA / MA2</b> — chuẩn ma sát cho <b>ly hợp ướt</b>. Bắt buộc. Nhớt ô tô gắn nhãn '
-          + '"Resource Conserving / Energy Conserving" có phụ gia giảm ma sát sẽ làm ly hợp TRƯỢT.',
-        ],
-      },
-    ],
+const PU = L.pump, CF = L.cf, RV = L.relief;
+const f2 = (v) => v.toFixed(2);
+const kpa = (v) => `${Math.round(v)} kPa`;
 
-    specs: [
-      ['Kiểu bôi trơn', 'Cưỡng bức bằng bơm bánh răng + bắt toé (các-te ướt)'],
-      ['Kiểu lọc', 'Lưới lọc + bộ lọc li tâm. KHÔNG có lõi lọc giấy'],
-      ['Dung tích thay định kỳ', '≈ 0,8 L'],
-      ['Dung tích khi tháo cả máy', '≈ 0,9 L'],
-      ['Cấp nhớt khuyến nghị', '10W-30 (hoặc theo sổ tay), API SL trở lên, JASO MA/MA2'],
-      ['Chu kỳ thay nhớt', '≈ 1.000–2.000 km (do không có lọc giấy)'],
-      ['Vệ sinh bộ lọc li tâm', 'Mỗi ≈ 10.000–15.000 km'],
-      ['Lực siết bu lông xả nhớt', '≈ 24 N·m — thay long đen làm kín mỗi lần'],
-      ['Kiểu bơm', 'Bơm bánh răng ăn trong (trochoid/gerotor), dẫn động từ trục khuỷu'],
-    ],
+// ─────────────────────────────────────────────────────────────────────────────
+// KIỂM TRA KỸ THUẬT
+// ─────────────────────────────────────────────────────────────────────────────
 
-    parts: [
-      { name: 'Bơm nhớt (bánh răng ăn trong)', nameEn: 'Oil pump (trochoid)', qty: 1,
-        material: 'Vỏ nhôm, rôto trong/ngoài bằng thép thiêu kết',
-        spec: 'Khe hở đỉnh răng / khe hở thân / khe hở cạnh — đo khi đại tu',
-        fn: 'Tạo lưu lượng nhớt. Lưu ý: bơm này tạo LƯU LƯỢNG, áp suất sinh ra là do sức cản '
-          + 'của đường nhớt phía sau.',
-        fail: 'Khe hở mòn -> lưu lượng tụt ở vòng tua thấp -> gõ đầu bò khi không tải. '
-          + 'Đo 3 khe hở bằng lá căn.' },
-      { name: 'Bánh răng / nhông dẫn động bơm', nameEn: 'Oil pump drive gear', qty: 1,
-        material: 'Thép hoặc nhựa kỹ thuật',
-        fn: 'Nhận dẫn động từ trục khuỷu (hoặc từ chuông ly hợp) để quay bơm.',
-        fail: 'Răng nhựa vỡ -> bơm ngừng hoàn toàn -> máy bó trong vài phút. '
-          + 'Kiểm tra bắt buộc mỗi lần mở vỏ phải.' },
-      { name: 'Lưới lọc nhớt (ở các-te)', nameEn: 'Oil strainer screen', qty: 1,
-        material: 'Lưới thép + khung',
-        fn: 'Chặn mảnh kim loại lớn trước khi vào bơm.',
-        fail: 'Tắc -> bơm hút không được -> tụt áp suất. Vệ sinh mỗi lần tách máy.' },
-      { name: 'Bộ lọc li tâm (buồng + nắp)', nameEn: 'Centrifugal oil filter', qty: 1,
-        material: 'Thép, gắn trên trục khuỷu bên phải',
-        spec: 'Không có lõi lọc thay thế — chỉ vệ sinh',
-        fn: 'Ném hạt bẩn nặng ra thành buồng bằng lực li tâm.',
-        fail: 'Đầy cặn (2–5 mm) -> hết tác dụng -> nhớt bẩn đi trực tiếp đến ổ bi đầu to. '
-          + 'Vệ sinh mỗi 10.000–15.000 km.' },
-      { name: 'Nắp bộ lọc li tâm + o-ring', nameEn: 'Centrifugal filter cap', qty: 1,
-        material: 'Thép + o-ring cao su',
-        fn: 'Đóng kín buồng lọc.',
-        fail: 'O-ring chai -> nhớt lọt qua không được lọc. Thay o-ring khi vệ sinh.' },
-      { name: 'Bu lông xả nhớt + long đen làm kín', nameEn: 'Drain bolt & crush washer', qty: 1,
-        material: 'Thép + long đen nhôm/đồng biến dạng',
-        spec: 'Siết ≈ 24 N·m',
-        fn: 'Xả nhớt cũ.',
-        fail: 'Dùng lại long đen cũ -> rỉ nhớt. Siết quá -> trượt ren nhôm lốc máy (hư hỏng đắt). '
-          + 'Long đen là chi tiết dùng MỘT LẦN.' },
-      { name: 'Que thăm nhớt / kính thăm', nameEn: 'Dipstick / sight glass', qty: 1,
-        material: 'Nhựa + o-ring',
-        spec: 'Đo khi xe ĐỨNG THẲNG, máy đã tắt 2–3 phút',
-        fn: 'Kiểm mức nhớt.',
-        fail: 'Đo khi xe dựng chân chống nghiêng -> kết luận sai mức nhớt (thường là thấy thiếu '
-          + 'nên đổ thêm quá nhiều).' },
-      { name: 'Đường khoan nhớt trong trục khuỷu', nameEn: 'Crankshaft oil galleries', qty: 1,
-        material: 'Lỗ khoan trong trục',
-        fn: 'Dẫn nhớt có áp đến ổ bi đầu to tay biên.',
-        fail: 'Tắc do cặn/muội than -> ổ bi đầu to chết dù còn đủ nhớt trong máy. '
-          + 'Thông bằng khí nén mỗi lần tách máy.' },
-      { name: 'Đường nhớt lên đầu bò', nameEn: 'Cylinder head oil feed', qty: 1,
-        material: 'Lỗ khoan / ống dẫn qua xy-lanh',
-        fn: 'Cấp nhớt cho cổ trục cam và trục cò mổ.',
-        fail: 'Tắc -> mòn vấu cam và cò mổ rất nhanh. Kiểm bằng cách để máy nổ không tải '
-          + 'với nắp đầu bò mở — phải thấy nhớt rỉ ra ở trục cò mổ.' },
-      { name: 'Van an toàn (van xả áp)', nameEn: 'Relief valve', qty: 1,
-        material: 'Bi/piston thép + lò xo',
-        fn: 'Xả nhớt về các-te khi áp suất vượt mức — bảo vệ phớt và đường nhớt khi máy nguội '
-          + '(nhớt đặc, sức cản cao).',
-        fail: 'Kẹt mở -> áp suất không lên được. Kẹt đóng -> áp suất quá cao, bung phớt.' },
-      { name: 'Gioăng / o-ring đường nhớt', nameEn: 'Oil passage o-rings', qty: 3,
-        material: 'Cao su chịu nhiệt',
-        fn: 'Làm kín các điểm chuyển đường nhớt giữa lốc máy – xy-lanh – đầu bò.',
-        fail: 'Chai -> mất áp suất nội bộ, đầu bò thiếu nhớt dù mức nhớt các-te vẫn đủ.' },
-    ],
-
-    steps: [
-      { title: 'Thay nhớt định kỳ (không cần tháo gì)',
-        detail: 'Cho máy ấm (không nóng rẫy) để nhớt chảy hết. Xả nhớt, THAY LONG ĐEN LÀM KÍN, '
-          + 'siết lại 24 N·m, đổ 0,8 L nhớt JASO MA/MA2.',
-        tool: 'Tuýp 12 mm · khay · phễu · long đen làm kín mới',
-        torque: 'Bu lông xả: ≈ 24 N·m',
-        warn: 'Dùng lại long đen cũ là nguyên nhân rỉ nhớt phổ biến nhất',
-        tip: 'Đo mức nhớt khi xe ĐỨNG THẲNG, máy tắt 2–3 phút' },
-      { title: 'Kiểm mức và chất lượng nhớt',
-        detail: 'Nhớt đen như cà phê là bình thường sau vài trăm km. Nhớt có <b>ánh kim</b> '
-          + 'khi soi đèn = có mạt kim loại. Nhớt đặc sánh / như màu nâu sữa = có nước.',
-        tool: 'Que thăm · đèn pin',
-        tip: 'Chấm một giọt lên giấy trắng: quầng lan rộng = còn phụ gia; đọng lại một cục = hết' },
-      { title: 'Xả nhớt để vào hệ thống',
-        detail: 'Các bước sau đều cần xả hết nhớt trước.',
-        tool: 'Tuýp 12 mm' },
-      { title: 'Tháo vỏ ly hợp bên phải',
-        detail: 'Nới bu lông đối xứng, ghi nhớ vị trí bu lông khác chiều dài.',
-        tool: 'Tuýp 8 mm · búa cao su' },
-      { title: 'Vệ sinh bộ lọc li tâm',
-        detail: 'Tháo nắp buồng lọc (thường bắt bằng 3–4 vít). Cạo sạch lớp cặn dính ở thành buồng '
-          + 'bằng que nhựa/giẻ. Rửa bằng dung môi, thổi khí nén. Thay o-ring nắp.',
-        tool: 'Tuốc-nơ-vít / tuýp 8 mm · dung môi · khí nén · o-ring mới',
-        warn: 'Đây là bước bị bỏ qua nhiều nhất trên xe số',
-        tip: 'Lớp cặn dày 2–5 mm nghĩa là bộ lọc đã hết tác dụng từ lâu' },
-      { title: 'Kiểm nhông dẫn động bơm nhớt',
-        detail: 'Quay bằng tay, kiểm răng (nhất là nếu là bánh răng nhựa) và kiểm then/chốt dẫn động.',
-        tool: 'Đèn pin',
-        warn: 'Răng nhựa vỡ -> bơm ngừng -> máy bó trong vài phút chạy' },
-      { title: 'Tháo bơm nhớt',
-        detail: 'Tháo 2–3 bu lông giữ bơm, rút cả bộ bơm ra. Ghi nhớ chiều lắp rôto.',
-        tool: 'Tuýp 8 mm',
-        tip: 'Chụp ảnh chiều lắp rôto trong/ngoài trước khi tháo rời' },
-      { title: 'Đo 3 khe hở của bơm',
-        detail: 'Tháo nắp bơm. Đo bằng lá căn: (a) khe hở đỉnh răng giữa rôto trong và ngoài, '
-          + '(b) khe hở giữa rôto ngoài và thân bơm, (c) khe hở cạnh (đo bằng căn phẳng đặt '
-          + 'trên mặt bơm + lá căn).',
-        tool: 'Lá căn · căn phẳng',
-        tip: 'Vượt giới hạn -> thay CẢ BỘ bơm, không sửa lẻ' },
-      { title: 'Vệ sinh lưới lọc nhớt',
-        detail: 'Nếu lưới lọc nằm trong các-te thì phải tách lốc máy (hệ thống 03). '
-          + 'Một số đời có thể tiếp cận qua nắp dưới.',
-        tool: 'Bàn chải mềm · dung môi · khí nén' },
-      { title: 'Thông các đường nhớt bằng khí nén',
-        detail: 'Khi đã tách máy: thổi khí nén qua đường khoan trong trục khuỷu và đường nhớt '
-          + 'lên đầu bò. Phải thấy khí ra đầu bên kia.',
-        tool: 'Khí nén · kính bảo hộ',
-        warn: 'Đường nhớt lên đầu bò bị tắc làm mòn vấu cam rất nhanh' },
-      { title: 'Lắp lại · kiểm tra có nhớt lên đầu bò',
-        detail: 'Sau khi lắp và đổ nhớt: tháo nắp đầu bò, nổ máy không tải 30 giây. '
-          + '<b>Phải thấy nhớt rỉ ra ở trục cò mổ.</b> Nếu không có, TẮT MÁY NGAY và tìm nguyên nhân.',
-        warn: 'Đây là bước kiểm tra bắt buộc sau mỗi lần làm đường nhớt',
-        tip: 'Kiểm tra này mất 1 phút và cứu được cả cái đầu bò' },
-    ],
-
-    symptoms: [
-      { sign: 'Gõ đầu bò khi máy không tải, hết khi lên ga',
-        cause: 'Lưu lượng nhớt thấp ở vòng tua thấp: bơm mòn, lưới lọc bẩn, bộ lọc li tâm tắc, '
-          + 'mức nhớt thiếu, hoặc nhớt quá lỏng do đã bị loãng.',
-        fix: 'Kiểm mức nhớt và thay nhớt trước. Nếu còn -> mở vỏ phải, vệ sinh lọc li tâm, '
-          + 'đo khe hở bơm.' },
-      { sign: 'Nhớt đen rất nhanh (chỉ sau vài trăm km)',
-        cause: 'Muội than nhiều do đốt cháy không tốt (giàu xăng / xéc-măng mòn), '
-          + 'hoặc bộ lọc li tâm đã hết tác dụng.',
-        fix: 'Vệ sinh lọc li tâm. Kiểm áp suất nén (hệ thống 02) và tình trạng bugi (hệ thống 07).' },
-      { sign: 'Nhớt màu nâu sữa, đặc sánh',
-        cause: 'Có nước lẫn vào — thường do đi đường ngập, hoặc ống thở (breather) hút nước.',
-        fix: 'Thay nhớt ngay 2 lần liên tiếp (lần đầu để rửa). Kiểm đường ống thở và phớt.' },
-      { sign: 'Hao nhớt mà không thấy rỉ ở ngoài',
-        cause: 'Nhớt bị đốt: xéc-măng dầu mòn (hệ thống 02) hoặc phớt thân xupap (hệ thống 01).',
-        fix: 'Xem khói xả. Khói xanh khi thả ga -> phớt thân xupap. Khói xanh liên tục -> xéc-măng.' },
-      { sign: 'Rỉ nhớt ở bu lông xả',
-        cause: 'Long đen làm kín dùng lại, hoặc ren đã bị trượt do siết quá tay.',
-        fix: 'Thay long đen mới. Nếu ren đã trượt -> ta-rô lại hoặc cấy ren (không siết mạnh hơn).' },
-      { sign: 'Máy nóng bất thường, mất công suất khi chạy đường dài',
-        cause: 'Nhớt không còn làm mát được: đã quá hạn, mức thiếu, hoặc dùng cấp độ nhớt sai.',
-        fix: 'Thay nhớt đúng cấp. Nhớ rằng trên động cơ làm mát gió, nhớt là đường tản nhiệt chính '
-          + 'của nhiều chi tiết.' },
-    ],
-
-    related: ['crank-case', 'piston-cylinder', 'clutch', 'cylinder-head'],
+const checks = [
+  {
+    name: 'Rôto ngoài nhiều hơn rôto trong đúng MỘT thùy',
+    run() {
+      const zi = PU.lobesInner, zo = PU.lobesInner + 1;
+      return { pass: zo - zi === 1,
+        msg: `trong ${zi} thùy · ngoài ${zo} thùy · tỉ số tốc độ ${ROTOR_RATIO.toFixed(4)} = ${zi}/${zo}` };
+    },
   },
+  {
+    name: 'Hai rôto LỆCH TÂM — nếu đồng tâm thì bơm không hút được gì',
+    run() {
+      const oc = outerCenter();
+      const d = Math.hypot(oc.y - PU.y, oc.z - PU.z);
+      return { pass: d > 0.5,
+        msg: `độ lệch tâm ${f2(d)} mm — chính nó tạo ra khoang có thể tích biến thiên` };
+    },
+  },
+  {
+    name: 'Rôto nằm gọn trong lòng thân bơm',
+    run() {
+      const clear = PU.bodyR - PU.rOuter - Math.hypot(outerCenter().y - PU.y, 0);
+      return { pass: clear > 2,
+        msg: `thành thân bơm còn dày ${f2(clear)} mm quanh rôto ngoài (Ø${PU.rOuter * 2} mm)` };
+    },
+  },
+  {
+    name: 'Bơm quay CHẬM hơn động cơ',
+    run() {
+      return { pass: PUMP_DRIVE_RATIO < 1,
+        msg: `${L.crankGear.teeth} răng trục khuỷu / ${L.pumpGear.teeth} răng bơm `
+          + `= ${PUMP_DRIVE_RATIO.toFixed(3)} — ở 5000 v/ph động cơ thì bơm quay `
+          + `${Math.round(5000 * PUMP_DRIVE_RATIO)} v/ph` };
+    },
+  },
+  {
+    name: 'LƯU LƯỢNG tỉ lệ THUẬN với vòng tua (bơm thể tích)',
+    run() {
+      const q1 = flowLpm(1500), q2 = flowLpm(3000), q3 = flowLpm(6000);
+      // Với hiệu suất thể tích không đổi thì gấp đôi vòng tua = gấp đôi lưu lượng.
+      const r1 = q2 / q1, r2 = q3 / q2;
+      const ok = Math.abs(r1 - 2) < 0.02 && Math.abs(r2 - 2) < 0.02;
+      return { pass: ok,
+        msg: `1500 v/ph → ${f2(q1)} L/ph · 3000 → ${f2(q2)} · 6000 → ${f2(q3)} — `
+          + `gấp đôi vòng tua thì gấp ${r1.toFixed(3)}× lưu lượng` };
+    },
+  },
+  {
+    name: 'ÁP SUẤT do SỨC CẢN sinh ra, không do bơm — cùng vòng tua, đổi sức cản thì áp đổi',
+    run() {
+      const rpm = 3000;
+      const q = flowLpm(rpm);
+      const pNew = pressureKpa(rpm, 1.0);
+      const pWorn = pressureKpa(rpm, 0.35);
+      // Lưu lượng KHÔNG đổi, chỉ áp suất đổi.
+      const qSame = Math.abs(flowLpm(rpm) - q) < 1e-9;
+      return { pass: qSame && pWorn < pNew * 0.5,
+        msg: `ở ${rpm} v/ph lưu lượng ${f2(q)} L/ph KHÔNG đổi, nhưng áp suất `
+          + `${kpa(pNew)} (khe hở mới) → ${kpa(pWorn)} (khe hở mòn rộng). `
+          + `Đó chính là "gõ đầu bò khi không tải" trên máy cũ.` };
+    },
+  },
+  {
+    name: 'Mòn bơm làm TỤT lưu lượng, nặng nhất ở vòng tua thấp',
+    run() {
+      const lowNew = flowLpm(1400, 1.0), lowWorn = flowLpm(1400, 1.9);
+      const hiNew = flowLpm(7000, 1.0), hiWorn = flowLpm(7000, 1.9);
+      const lossLow = 1 - lowWorn / lowNew;
+      const lossHi = 1 - hiWorn / hiNew;
+      // Tỉ lệ mất mát bằng nhau, nhưng lưu lượng TUYỆT ĐỐI ở vòng tua thấp đã rất
+      // nhỏ nên thiếu hụt ở đó mới là chỗ chết máy.
+      return { pass: lowWorn < lowNew && lowWorn < hiWorn,
+        msg: `1400 v/ph: ${f2(lowNew)} → ${f2(lowWorn)} L/ph · `
+          + `7000 v/ph: ${f2(hiNew)} → ${f2(hiWorn)} L/ph. Mất ${Math.round(lossLow * 100)} % ở cả hai, `
+          + `nhưng ở vòng tua thấp lưu lượng còn lại chỉ ${f2(lowWorn)} L/ph` };
+    },
+  },
+  {
+    name: 'Van an toàn CHỈ mở khi quá áp, không mở lúc bình thường',
+    run() {
+      const idle = reliefOpen(1400, 1.0, 1.0);
+      const cold = reliefOpen(6000, 1.5, 1.0);
+      return { pass: !idle && cold,
+        msg: `không tải máy nóng (1400 v/ph, cản 1,0): ${idle ? 'MỞ' : 'đóng'} · `
+          + `ga cao máy nguội (6000 v/ph, cản 1,5): ${cold ? 'MỞ' : 'đóng'}. `
+          + `Ngưỡng ${L.reliefOpenKpa} kPa` };
+    },
+  },
+  {
+    name: 'Áp suất bị van an toàn CẮT ở ngưỡng, không tăng vô hạn',
+    run() {
+      const p = pressureKpa(9000, 1.6, 1.0);
+      return { pass: p <= L.reliefOpenKpa + 0.01,
+        msg: `9000 v/ph + nhớt đặc: áp suất bị chặn ở ${kpa(p)} = ngưỡng van` };
+    },
+  },
+  {
+    name: 'Hiệu quả lọc li tâm GIẢM ĐƠN ĐIỆU theo độ dày cặn, về 0 khi đầy',
+    run() {
+      let mono = true;
+      let prev = filterEfficiency(0);
+      for (let s = 0.1; s <= CF.sludgeMax + 1e-9; s += 0.1) {
+        const e = filterEfficiency(s);
+        if (e > prev + 1e-9) mono = false;
+        prev = e;
+      }
+      const e0 = filterEfficiency(0), eMid = filterEfficiency(CF.sludgeMax / 2),
+        eFull = filterEfficiency(CF.sludgeMax);
+      return { pass: mono && e0 > 0.99 && eFull < 0.01,
+        msg: `sạch ${Math.round(e0 * 100)} % → nửa (${sludgeToKm(CF.sludgeMax / 2).toLocaleString('vi-VN')} km) `
+          + `${Math.round(eMid * 100)} % → đầy ${Math.round(eFull * 100)} %` };
+    },
+  },
+  {
+    name: 'Lớp cặn nằm TRONG buồng lọc, không chồm qua thành',
+    run() {
+      const inner = CF.rIn - 0.3 - CF.sludgeMax;
+      return { pass: inner > L.crank.r + 2,
+        msg: `cặn dày tối đa ${CF.sludgeMax} mm ăn từ R${CF.rIn - 0.3} vào R${f2(inner)}, `
+          + `vẫn cách cổ trục khuỷu (R${L.crank.r}) ${f2(inner - L.crank.r)} mm` };
+    },
+  },
+  {
+    name: 'Van an toàn không chồm vào thân bơm',
+    run() {
+      const d = Math.hypot(RV.y - PU.y, RV.z - PU.z);
+      const need = PU.bodyR + RV.r + 2;
+      return { pass: d >= need,
+        msg: `tâm van cách tâm bơm ${f2(d)} mm, cần ≥ ${f2(need)} mm `
+          + `(bán kính thân bơm ${PU.bodyR} + bán kính van ${RV.r} + khe 2)` };
+    },
+  },
+  {
+    name: 'Buồng lọc li tâm nằm NGOÀI bơm nhớt theo trục — thứ tự đường nhớt đúng',
+    run() {
+      return { pass: CF.x0 > PU.x1,
+        msg: `bơm ở x ${PU.x0}…${PU.x1}, buồng lọc ở x ${CF.x0}…${CF.x1} — `
+          + `nhớt qua bơm TRƯỚC rồi mới vào buồng lọc` };
+    },
+  },
+  {
+    name: 'Mạch nhớt liền một dải, đi từ đáy các-te lên tới đầu bò',
+    run() {
+      const len = OIL_CURVE.getLength();
+      const p0 = OIL_CURVE.getPointAt(0), p1 = OIL_CURVE.getPointAt(1);
+      const rise = p1.y - p0.y;
+      // không có đoạn nào nhảy vọt (dấu hiệu mạch bị đứt)
+      let maxSeg = 0;
+      let prev = OIL_CURVE.getPointAt(0);
+      for (let i = 1; i <= 200; i++) {
+        const p = OIL_CURVE.getPointAt(i / 200);
+        maxSeg = Math.max(maxSeg, p.distanceTo(prev));
+        prev = p;
+      }
+      return { pass: len > 200 && rise > 100 && maxSeg < len / 40,
+        msg: `${OIL_PATH.length} chặng · dài ${Math.round(len)} mm · dâng ${Math.round(rise)} mm `
+          + `từ đáy các-te lên trục cam · đoạn dài nhất ${f2(maxSeg)} mm (mạch liền)` };
+    },
+  },
+  {
+    name: 'Lưới lọc nằm dưới mức nhớt (bơm phải hút được nhớt, không hút không khí)',
+    run() {
+      const submerged = L.oilLevelY - L.strainer.y;
+      return { pass: submerged > 4,
+        msg: `mức nhớt y=${L.oilLevelY} · lưới lọc y=${L.strainer.y} — `
+          + `ngập ${f2(submerged)} mm. Nhớt cạn quá mức thấp thì bơm hút KHÍ và mất áp ngay.` };
+    },
+  },
+  {
+    name: 'Quét cả vòng ở nhiều chế độ: không NaN',
+    run(asm, kin) {
+      const cases = [[1400, 1.0, 1.0, 0], [5000, 0.35, 1.9, CF.sludgeMax], [9000, 1.6, 1.4, 2.5]];
+      let bad = null;
+      for (const [rpm, r, w, sl] of cases) {
+        kin.setRpm(rpm); kin.setResist(r); kin.setWear(w); kin.setSludge(sl);
+        for (let a = 0; a <= 720; a += 5) {
+          const st = kin.drive(a, 1 / 60);
+          for (const [k, v] of Object.entries(st)) {
+            if (typeof v === 'number' && !Number.isFinite(v)) bad = `${k} @ ${a}° (${rpm} v/ph)`;
+          }
+        }
+      }
+      kin.setRpm(3000); kin.setResist(1); kin.setWear(1); kin.setSludge(0.6);
+      return { pass: !bad, msg: bad ? `NaN tại ${bad}` : '3 chế độ × 145 góc — mọi số hữu hạn' };
+    },
+  },
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+export default {
+  mode: '3d',
+  slug: 'lubrication',
+  parts: PARTS,
+  steps: STEPS,
+  createKinematics,
+  checks,
+  driveRange: 720,
+
+  frameDir: [0.30, 0.16, 0.94],
+  frameExclude: ['ctx-sump', 'dipstick', 'drain-bolt'],
+  contextCategory: 'Ngữ cảnh (không tháo)',
+  initialDrive: 0,
+  initialRpm: 90,
+
+  /** Chế độ Hoạt động: làm mờ vỏ để thấy dòng nhớt chạy bên trong. */
+  opsGhost: ['pump-gear', 'cf-housing', 'cf-cap', 'ctx-crank'],
+  opsHidden: ['pump-bolts', 'dipstick', 'ctx-sump', 'pump-cover', 'pump-body'],
+
+  labels(asm, kin) {
+    const at = (x, y, z = 0) => new THREE.Vector3(x, y, z);
+    return [
+      {
+        pos: () => at((PU.x0 + PU.x1) / 2, PU.y - PU.bodyR - 10, PU.z),
+        text: () => `${kin.state.flowLpm.toFixed(2)} L/ph`,
+        accent: true,
+      },
+      {
+        pos: () => at((PU.x0 + PU.x1) / 2, PU.y + PU.bodyR + 10, PU.z),
+        text: () => kpa(kin.state.pressureKpa),
+        accent: () => kin.state.pressureKpa < 100,
+      },
+      {
+        pos: () => at(RV.x + 24, RV.y, RV.z),
+        text: () => (kin.state.reliefOpen ? 'van an toàn ĐANG XẢ' : 'van an toàn đóng'),
+        accent: () => kin.state.reliefOpen,
+      },
+      {
+        pos: () => at((CF.x0 + CF.x1) / 2, CF.rOut + 12),
+        text: () => `lọc li tâm ${Math.round(kin.state.filterEff * 100)} % `
+          + `(${kin.state.sludgeKm.toLocaleString('vi-VN')} km)`,
+        accent: () => kin.state.filterEff < 0.35,
+      },
+      { pos: () => at(L.strainer.x, L.strainer.y - 12), text: 'lưới lọc — cấp lọc 1' },
+      { pos: () => at(-14, L.headY - 8), text: 'tới trục cam & cò mổ' },
+      { pos: () => at(0, L.oilLevelY + 6, -58), text: 'mức nhớt' },
+    ];
+  },
+
+  opsPanel(mount, kin, api) {
+    const playBtn = el('button', { class: 'tlbtn primary', text: '⏸', title: 'Chạy/dừng (Space)' });
+    playBtn.onclick = () => api.setPlaying(!api.playing);
+
+    const spd = el('input', { type: 'range', min: 20, max: 400, step: 5, value: api.rpm });
+    const spdLb = el('b', { text: `${api.rpm}` });
+    spd.addEventListener('input', () => { api.setRpm(+spd.value); spdLb.textContent = spd.value; });
+
+    const rpm = el('input', { type: 'range', min: 800, max: 9000, step: 100, value: 3000 });
+    const rpmLb = el('b', { text: '3000 v/ph' });
+    rpm.addEventListener('input', () => { kin.setRpm(+rpm.value); rpmLb.textContent = `${rpm.value} v/ph`; });
+
+    const res = el('input', { type: 'range', min: 25, max: 160, step: 5, value: 100 });
+    const resLb = el('b', { text: '1,00 — bình thường' });
+    const resTxt = (v) => (v < 0.7 ? `${v.toFixed(2).replace('.', ',')} — khe hở ổ đỡ đã mòn RỘNG`
+      : v > 1.25 ? `${v.toFixed(2).replace('.', ',')} — nhớt đặc / máy nguội`
+        : `${v.toFixed(2).replace('.', ',')} — bình thường`);
+    res.addEventListener('input', () => {
+      const v = +res.value / 100; kin.setResist(v); resLb.textContent = resTxt(v);
+    });
+
+    const wear = el('input', { type: 'range', min: 100, max: 220, step: 5, value: 100 });
+    const wearLb = el('b', { text: 'bơm mới' });
+    wear.addEventListener('input', () => {
+      const v = +wear.value / 100; kin.setWear(v);
+      wearLb.textContent = v <= 1.01 ? 'bơm mới'
+        : `ba khe hở rộng ×${v.toFixed(2).replace('.', ',')}`;
+    });
+
+    const sl = el('input', { type: 'range', min: 0, max: CF.sludgeMax * 10, step: 1, value: 6 });
+    const slLb = el('b', { text: `0,6 mm ≈ ${sludgeToKm(0.6).toLocaleString('vi-VN')} km` });
+    sl.addEventListener('input', () => {
+      const v = +sl.value / 10; kin.setSludge(v);
+      slLb.textContent = `${v.toFixed(1).replace('.', ',')} mm ≈ ${sludgeToKm(v).toLocaleString('vi-VN')} km`;
+    });
+
+    const preset = (label, title, fn) => el('button', { class: 'tlbtn', text: label, title,
+      onclick: () => {
+        fn();
+        rpm.value = String(kin.state.rpm); rpmLb.textContent = `${kin.state.rpm} v/ph`;
+        res.value = String(Math.round(kin.state.resist * 100)); resLb.textContent = resTxt(kin.state.resist);
+        wear.value = String(Math.round(kin.state.wear * 100));
+        wearLb.textContent = kin.state.wear <= 1.01 ? 'bơm mới'
+          : `ba khe hở rộng ×${kin.state.wear.toFixed(2).replace('.', ',')}`;
+        sl.value = String(Math.round(kin.state.sludge * 10));
+        slLb.textContent = `${kin.state.sludge.toFixed(1).replace('.', ',')} mm ≈ `
+          + `${sludgeToKm(kin.state.sludge).toLocaleString('vi-VN')} km`;
+      } });
+
+    const bar = (cls) => { const i = el('i'); return { node: el('div', { class: `bar ${cls}` }, i), i }; };
+    const bQ = bar(''), bP = bar('ex');
+    const vQ = el('span', { class: 'vl', text: '0 L/ph' });
+    const vP = el('span', { class: 'vl', text: '0 kPa' });
+    const vR = el('span', { class: 'vl', text: 'đóng' });
+    const vE = el('span', { class: 'vl', text: '100 %' });
+    const vS = el('span', { class: 'vl', text: '—' });
+
+    mount.append(el('div', { class: 'opspanel' },
+      el('div', { class: 'row', style: { display: 'flex', gap: '8px', alignItems: 'center' } },
+        playBtn,
+        el('span', { class: 'lb', style: { color: 'var(--fg-3)', fontSize: '11px' }, text: 'tốc độ hình' }),
+        spdLb,
+      ),
+      el('div', { class: 'field' }, el('label', {}, 'Vòng tua động cơ', rpmLb), rpm),
+      el('div', { class: 'field' },
+        el('label', {}, 'Sức cản đường nhớt', resLb), res),
+      el('div', { class: 'field' },
+        el('label', {}, 'Độ mòn bơm', wearLb), wear),
+      el('div', { class: 'field' },
+        el('label', {}, 'Cặn trong buồng lọc li tâm', slLb), sl),
+
+      el('div', { class: 'field' },
+        el('label', {}, 'Khung nhìn'),
+        el('div', { class: 'row', style: { display: 'flex', gap: '6px', flexWrap: 'wrap' } },
+          el('button', { class: 'tlbtn', text: 'mạch nhớt',
+            title: 'Xem cả đường đi của nhớt từ đáy các-te lên trục cam',
+            onclick: () => api.frameOn(null) }),
+          el('button', { class: 'tlbtn', text: 'bơm',
+            title: 'Phóng vào bơm nhớt để xem hai rôto quay lệch tâm',
+            onclick: () => api.frameOn(
+              ['pump-body', 'pump-cover', 'rotor-inner', 'rotor-outer', 'pump-shaft', 'pump-gear'],
+              [0.86, 0.18, 0.48]) }),
+          el('button', { class: 'tlbtn', text: 'lọc',
+            title: 'Phóng vào buồng lọc li tâm để xem lớp cặn',
+            onclick: () => api.frameOn(['cf-housing', 'cf-cap', 'cf-sludge'], [0.62, 0.30, 0.72]) }),
+        )),
+
+      el('div', { class: 'row', style: { display: 'flex', gap: '6px', flexWrap: 'wrap' } },
+        preset('máy mới', 'Không tải, mọi khe hở còn mới',
+          () => { kin.setRpm(1400); kin.setResist(1.0); kin.setWear(1.0); }),
+        preset('máy mòn', 'Không tải, khe hở ổ đỡ đã rộng + bơm mòn — xem áp suất tụt',
+          () => { kin.setRpm(1400); kin.setResist(0.35); kin.setWear(1.8); }),
+        preset('máy nguội', 'Ga cao khi nhớt còn đặc — xem van an toàn mở',
+          () => { kin.setRpm(6000); kin.setResist(1.5); kin.setWear(1.0); }),
+        preset('lọc bẩn', 'Buồng lọc li tâm chưa từng vệ sinh',
+          () => { kin.setSludge(CF.sludgeMax); }),
+        preset('lọc sạch', 'Buồng lọc vừa được vét cặn',
+          () => { kin.setSludge(0); }),
+      ),
+
+      el('div', { class: 'gauge' },
+        el('span', { class: 'lb', text: 'LƯU LƯỢNG' }), bQ.node, vQ,
+        el('span', { class: 'lb', text: 'ÁP SUẤT' }), bP.node, vP,
+        el('span', { class: 'lb', text: 'Van an toàn' }), el('div', {}), vR,
+        el('span', { class: 'lb', text: 'Hiệu quả lọc' }), el('div', {}), vE,
+        el('span', { class: 'lb', text: 'Nhớt đang ở' }), el('div', {}), vS,
+      ),
+
+      el('div', { class: 'note', html:
+        '<b>Điều đáng xem nhất — bơm KHÔNG tạo áp suất.</b> Giữ nguyên vòng tua rồi kéo thanh '
+        + '<b>sức cản đường nhớt</b> xuống thấp (giả lập khe hở ổ đỡ đã mòn rộng). '
+        + 'Đồng hồ <b>lưu lượng</b> gần như không đổi, nhưng <b>áp suất tụt hẳn</b>. '
+        + 'Bơm vẫn đẩy đúng lượng nhớt đó — chỉ có điều nhớt thoát ra khỏi các khe hở rộng '
+        + 'quá dễ nên không dựng được áp. Đó chính là lý do máy cũ "gõ đầu bò khi không tải" '
+        + 'mà thay bơm mới vẫn không hết.<br><br>'
+        + '<b>Điều thứ hai:</b> kéo thanh <b>cặn trong buồng lọc</b> lên tối đa. Hiệu quả lọc '
+        + 'về 0 mà không có bất kỳ dấu hiệu nào trên xe — không đèn báo, không tiếng kêu, '
+        + 'áp suất vẫn bình thường. Nhớt bẩn đi thẳng vào ổ bi đầu to. Đây là việc bảo dưỡng '
+        + 'bị bỏ qua nhiều nhất trên xe số.' }),
+    ));
+
+    return {
+      update() {
+        const s = kin.state;
+        const qMax = flowLpm(9000, 1.0);
+        bQ.i.style.width = `${Math.min(100, (s.flowLpm / qMax) * 100)}%`;
+        bP.i.style.width = `${Math.min(100, (s.pressureKpa / L.reliefOpenKpa) * 100)}%`;
+        vQ.textContent = `${s.flowLpm.toFixed(2).replace('.', ',')} L/ph`;
+        vP.textContent = kpa(s.pressureKpa);
+        vR.textContent = s.reliefOpen ? 'ĐANG XẢ' : 'đóng';
+        vE.textContent = `${Math.round(s.filterEff * 100)} %`;
+        vS.textContent = s.stationName;
+      },
+    };
+  },
+
+  intro: {
+    title: 'Bơm tạo LƯU LƯỢNG — áp suất là chuyện khác',
+    html: `
+      <p>Câu hay nghe nhất về hệ thống bôi trơn là "bơm nhớt tạo áp suất". Câu đó sai, và
+      hiểu sai chỗ này dẫn tới chẩn đoán sai rất nhiều lần. Bơm ở đây là <b>bơm thể tích</b>:
+      mỗi vòng quay nó đẩy đi một lượng nhớt gần như cố định
+      (≈ ${PUMP_CC_PER_REV.toFixed(2)} cm³ mỗi vòng), bất kể phía sau có gì. Cái sinh ra
+      <b>áp suất</b> là <b>sức cản</b> của đường nhớt phía sau — chủ yếu là các khe hở hẹp ở ổ
+      đỡ, trục cam, cò mổ. Nhớt phải chen qua những khe hẹp đó nên dồn lại thành áp.</p>
+      <p><b>Hệ quả trực tiếp:</b> máy cũ, khe hở ổ đỡ đã mòn rộng ra, nhớt thoát quá dễ nên
+      <b>áp suất tụt</b> dù bơm vẫn đẩy đủ lưu lượng. Thay bơm mới không giải quyết được gì.
+      Bật chế độ Hoạt động, giữ nguyên vòng tua và kéo thanh <b>sức cản</b> — bạn sẽ thấy
+      lưu lượng đứng yên trong khi áp suất tụt.</p>
+      <p><b>Ba cấp lọc, không có cấp nào là lọc giấy.</b> Xe số dùng: (1) lưới lọc thô ở đáy
+      các-te, (2) <b>bộ lọc li tâm</b> quay theo trục khuỷu, (3) không có gì nữa. Bộ lọc li
+      tâm là cấp duy nhất giữ được hạt nhỏ, và nó <b>chỉ vệ sinh được, không thay được</b>.
+      Khi nó đầy cặn thì nhớt bẩn đi thẳng vào ổ bi đầu to — <b>không có dấu hiệu gì báo cho
+      người lái biết</b>. Đó là lý do nhiều xe thay nhớt rất đúng hạn mà máy vẫn xuống nhanh.</p>
+      <p>Trong mô hình, đường nhớt được vẽ thành ống trong suốt với các hạt chạy dọc theo
+      (trên máy thật đó là lỗ khoan trong khối kim loại). Tốc độ hạt lấy trực tiếp từ con số
+      lưu lượng đang hiện trên đồng hồ, nên hình và số không thể lệch nhau.</p>`,
+  },
+
+  symptoms: [
+    { sign: 'Gõ đầu bò lóc cóc khi KHÔNG TẢI, hết khi lên ga',
+      cause: 'Áp suất nhớt ở vòng tua thấp không đủ đẩy lên đầu bò. Nguyên nhân gốc thường là '
+        + 'khe hở ổ đỡ đã mòn rộng (sức cản tụt) chứ không phải bơm yếu.',
+      fix: 'Đo áp suất nhớt trước khi kết luận. Nếu áp đủ ở vòng tua cao mà thiếu ở không tải '
+        + 'thì vấn đề ở khe hở, không phải ở bơm. Kiểm khe hở cò mổ và trục cam trước.' },
+    { sign: 'Gõ đầu bò ở MỌI vòng tua, ngay sau khi vừa thay nhớt',
+      cause: 'Đường nhớt lên đầu bò bị tắc, hoặc lắp thiếu/lệch gioăng đệm che đường nhớt, '
+        + 'hoặc quên thông đường sau khi tách máy.',
+      fix: 'Tháo nắp đầu bò, quay máy bằng tay và xem nhớt có ứa lên trục cam không. '
+        + 'Không ứa thì thổi khí nén ngược từng đường.' },
+    { sign: 'Máy nhanh xuống dù thay nhớt rất đúng hạn',
+      cause: 'Bộ lọc li tâm chưa từng được vệ sinh — đây là nguyên nhân âm thầm và phổ biến nhất. '
+        + 'Nhớt mới chạy qua buồng lọc đầy cặn thì vẫn bẩn ngay.',
+      fix: 'Mở vỏ máy phải, mở nắp buồng lọc, vét cặn, thay o-ring. Làm mỗi 10.000–15.000 km.' },
+    { sign: 'Áp suất nhớt KHÔNG lên ở vòng tua cao',
+      cause: 'Van an toàn kẹt MỞ (bi kẹt hoặc lò xo yếu) · lưới lọc tắc làm bơm hụt · '
+        + 'ba khe hở của bơm đã vượt dung sai.',
+      fix: 'Kiểm van an toàn TRƯỚC khi tháo bơm — nó dễ tháo hơn nhiều và là nguyên nhân '
+        + 'hay bị quy oan cho bơm.' },
+    { sign: 'Máy bó cứng sau vài phút chạy, xe vừa được "làm máy"',
+      cause: 'Nhông dẫn động bơm bằng nhựa bị vỡ răng, hoặc lắp thiếu then dẹt trên trục bơm, '
+        + 'hoặc lắp rôto ngược mặt.',
+      fix: 'Đây là hỏng hóc do lắp sai. Mở vỏ máy phải kiểm nhông bơm. Sau mỗi lần đại tu, '
+        + 'trước khi lắp bugi phải quay máy và xác nhận nhớt ứa lên trục cam.' },
+    { sign: 'Nhớt bị đẩy ra ngoài qua phớt sau khi khởi động máy nguội',
+      cause: 'Van an toàn kẹt ĐÓNG. Nhớt nguội rất đặc, sức cản cao, không có van xả thì '
+        + 'áp suất tăng đủ để bung phớt.',
+      fix: 'Tháo van, làm sạch bi và ổ bi, kiểm lò xo. Thay cả bộ nếu bi có vết rỗ.' },
+    { sign: 'Que thăm báo thiếu nhớt liên tục nhưng không thấy rỉ ở đâu',
+      cause: 'Đo khi xe dựng chân chống nghiêng — số đọc luôn thấp hơn thực tế. '
+        + 'Hoặc nhớt đang bị đốt (khói xanh) do xéc-măng hoặc phớt xupap.',
+      fix: 'Đo lại khi xe ĐỨNG THẲNG, đã tắt máy 2–3 phút. Nếu thật sự hao thì tìm khói xanh '
+        + 'ở ống xả (hệ thống 02) trước khi đổ thêm.' },
+    { sign: 'Mạt kim loại SÁNG trên lưới lọc hoặc trong buồng lọc li tâm',
+      cause: 'Có chi tiết đang mòn nhanh: ổ bi, bạc, hoặc bánh răng hộp số.',
+      fix: 'KHÔNG lắp lại rồi chạy tiếp. Mạt sáng là dấu hiệu mòn đang diễn ra — phải truy '
+        + 'nguồn gốc. Mạt màu đen mềm thì là muội than, bình thường.' },
+  ],
 };

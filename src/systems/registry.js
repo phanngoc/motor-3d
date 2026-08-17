@@ -61,10 +61,10 @@ export const SYSTEMS = [
     tags: ['4 cấp', 'cài then', 'trống số', 'càng cua'],
   },
   {
-    ix: '06', slug: 'lubrication', status: 'doc',
+    ix: '06', slug: 'lubrication', status: '3d',
     name: 'Hệ thống bôi trơn',
     nameEn: 'Lubrication system',
-    tagline: 'Bơm bánh răng, lọc li tâm, đường dầu lên đầu bò. Xe số KHÔNG có lọc giấy.',
+    tagline: 'Bơm tạo LƯU LƯỢNG, sức cản tạo áp suất. Lọc li tâm chỉ vệ sinh được, không thay được.',
     tags: ['bơm bánh răng', 'lọc li tâm', '0,8 L nhớt'],
   },
   {
