@@ -82,7 +82,7 @@ export const SYSTEMS = [
     tags: ['CDI', 'stator', 'đề', 'sạc'],
   },
   {
-    ix: '09', slug: 'chassis-brakes', status: 'doc',
+    ix: '09', slug: 'chassis-brakes', status: '3d',
     name: 'Khung, phuộc, phanh & truyền động cuối',
     nameEn: 'Frame, suspension, brakes & final drive',
     tagline: 'Phuộc trước/sau, phanh đĩa + phanh cơ, nhông–dĩa–sên.',

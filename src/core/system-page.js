@@ -79,6 +79,14 @@ export function mountSystemPage(sys) {
     },
   };
 
+  // ── Tỉ lệ cảnh ─────────────────────────────────────────────────────────────
+  // Đo hộp bao thật của hệ (bỏ nhóm ngữ cảnh dài) rồi đặt lại giới hạn camera và
+  // khung chiếu bóng. Không làm bước này thì hệ khung xe bị kẹt ở mức phóng quá gần.
+  {
+    const b = new THREE.Box3().setFromObject(frameTarget());
+    if (!b.isEmpty()) viewer.setScale(b.getBoundingSphere(new THREE.Sphere()).radius);
+  }
+
   // ── Panel chế độ Hoạt động ─────────────────────────────────────────────────
   const ops = sys.opsPanel(opsBox, kin, api);
 

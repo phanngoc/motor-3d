@@ -113,6 +113,28 @@ export class Viewer {
   }
 
   /** Đưa camera về khung nhìn bao trọn object (hoặc root). */
+  /**
+   * Đặt lại TỈ LỆ CẢNH theo bán kính bao của hệ thống đang xem (mm).
+   *
+   * Cần thiết vì các hệ trong động cơ chỉ cỡ vài trăm mm, còn hệ khung xe là cả
+   * chiếc xe cỡ vài nghìn mm. Nếu giữ nguyên giới hạn tầm camera và khung chiếu
+   * bóng của cảnh nhỏ thì cảnh lớn sẽ bị "kẹt" ở mức phóng quá gần và bóng đổ sai.
+   */
+  setScale(radiusMm) {
+    const r = Math.max(radiusMm, 120);
+    this.controls.maxDistance = r * 6;
+    this.controls.minDistance = Math.max(12, r * 0.06);
+    this.camera.far = Math.max(6000, r * 14);
+    this.camera.updateProjectionMatrix();
+    const s = r * 1.35;
+    Object.assign(this.keyLight.shadow.camera, {
+      left: -s, right: s, top: s, bottom: -s, near: 1, far: s * 7,
+    });
+    this.keyLight.shadow.camera.updateProjectionMatrix();
+    this.keyLight.position.set(r * 0.82, r * 1.45, r * 0.86);
+    return this;
+  }
+
   frame(object = this.root, { padding = 1.45, animate = true, dir = null, minRadius = 0 } = {}) {
     const box = new THREE.Box3().setFromObject(object);
     if (box.isEmpty()) return;

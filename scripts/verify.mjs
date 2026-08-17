@@ -62,7 +62,13 @@ for (const meta of targets) {
       const box = new THREE.Box3().setFromObject(part.object);
       boxes.set(def.id, box);
       const sz = box.getSize(new THREE.Vector3());
-      if (sz.length() > 900) throw new Error(`hộp bao quá lớn: ${sz.toArray().map((v) => v.toFixed(0))}`);
+      // Ngưỡng mặc định phù hợp với các hệ NẰM TRONG động cơ. Hệ khung xe có chi
+      // tiết dài hơn thật (khung sườn, gắp sau), nên nó tự khai báo ngưỡng riêng.
+      const maxSize = sys.maxPartSize ?? 900;
+      if (sz.length() > maxSize) {
+        throw new Error(`hộp bao quá lớn (ngưỡng ${maxSize}): `
+          + `${sz.toArray().map((v) => v.toFixed(0))}`);
+      }
       console.log(`       ${def.id.padEnd(17)} ${String(Math.round(n)).padStart(7)} tri  `
         + `x[${num(box.min.x)},${num(box.max.x)}] `
         + `y[${num(box.min.y)},${num(box.max.y)}] `
