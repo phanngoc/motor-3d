@@ -1,0 +1,19 @@
+{
+  "name": "motor-3d",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Mo hinh 3D tham so hoa xe may 4 ky (Honda Wave 110) - hinh hoc sinh bang code, animation thao lap tung he thong",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "verify": "node scripts/verify.mjs"
+  },
+  "dependencies": {
+    "three": "^0.180.0"
+  },
+  "devDependencies": {
+    "vite": "^7.0.0"
+  }
+}
