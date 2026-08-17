@@ -68,7 +68,7 @@ export const SYSTEMS = [
     tags: ['bơm bánh răng', 'lọc li tâm', '0,8 L nhớt'],
   },
   {
-    ix: '07', slug: 'fuel-intake', status: 'doc',
+    ix: '07', slug: 'fuel-intake', status: '3d',
     name: 'Nạp – xả & cung cấp nhiên liệu',
     nameEn: 'Intake, fuel system & exhaust',
     tagline: 'Lọc gió, bộ hòa khí (hoặc phun xăng PGM-FI), cổ góp, ống xả.',

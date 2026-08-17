@@ -116,13 +116,20 @@ kbd {
   padding: 22px 16px 12px; display: flex; flex-direction: column; gap: 8px;
 }
 .timeline .row { display: flex; align-items: center; gap: 10px; }
+/* Vừa dùng làm nút biểu tượng vuông, vừa dùng làm nút chữ: min-width giữ hình
+   vuông cho nút biểu tượng, còn nút chữ thì tự nới ra và KHÔNG xuống dòng. */
 .tlbtn {
   background: var(--bg-3); border: 1px solid var(--line-2); color: var(--fg);
-  width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 13px;
-  display: grid; place-items: center; flex-shrink: 0;
+  min-width: 32px; height: 32px; padding: 0 9px; border-radius: 8px; cursor: pointer;
+  font-size: 13px; line-height: 1; white-space: nowrap;
+  display: inline-grid; place-items: center; flex-shrink: 0;
 }
 .tlbtn:hover { border-color: var(--acc-dim); color: var(--acc); }
-.tlbtn.primary { background: var(--acc); color: #05231b; border-color: var(--acc); width: 38px; height: 38px; font-size: 15px; }
+.tlbtn[aria-pressed="true"] { border-color: var(--acc); color: var(--acc); }
+.tlbtn.primary {
+  background: var(--acc); color: #05231b; border-color: var(--acc);
+  min-width: 38px; width: 38px; height: 38px; padding: 0; font-size: 15px;
+}
 .tlbtn:disabled { opacity: 0.35; cursor: default; }
 .tlcount { font-family: var(--mono); font-size: 12px; color: var(--fg-2); min-width: 54px; text-align: center; }
 
