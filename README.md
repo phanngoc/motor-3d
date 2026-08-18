@@ -8,12 +8,15 @@ kèm animation **cách hoạt động** và animation **quy trình tháo lắp t
 Mục tiêu không phải đẹp như ảnh chụp, mà là **đúng quan hệ ăn khớp, đúng tỉ số truyền,
 đúng thứ tự tháo lắp** — đó mới là những thứ giúp hiểu cơ cấu.
 
+**▶ Xem trực tiếp: https://motor-3d.lequidon-1993.workers.dev**
+
 ```bash
 npm install
 npm run dev              # http://localhost:5173
 npm run verify           # kiểm tra hình học + động học headless (không cần browser)
 npm run verify -- gearbox
 npm run build            # build tĩnh vào dist/, deploy được lên bất kỳ static host
+npm run deploy           # verify → build → deploy lên Cloudflare Workers
 ```
 
 ---
@@ -287,7 +290,10 @@ npm run deploy          # verify → build → wrangler deploy
 ```
 
 `npm run deploy` chạy `npm run verify` trước, nên **không thể deploy một bản mà 134 phép
-kiểm chưa đạt**. Sau lệnh đó site nằm ở `https://motor-3d.<subdomain>.workers.dev`.
+kiểm chưa đạt**. Bản đang chạy: **https://motor-3d.lequidon-1993.workers.dev**
+
+Ngay sau khi deploy có thể vài trang trả 404 trong khoảng nửa phút — manifest tài nguyên
+còn đang lan ra các node biên. Chờ rồi tải lại, không phải lỗi cấu hình.
 
 Xem thử ở local đúng cách Cloudflare phục vụ (khác `npm run dev` — bản này chạy trên
 bản build thật, có cả `_headers` và trang 404):
