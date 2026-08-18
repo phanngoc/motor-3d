@@ -1,0 +1,21 @@
+# _headers — Cloudflare đọc file này để đặt header cho từng nhóm đường dẫn.
+# Vite copy nguyên `public/` sang `dist/` nên file này tự có mặt sau khi build.
+
+# Tài nguyên do Vite sinh ra đều có HASH trong tên file. Nội dung đổi thì tên đổi,
+# nên cache vĩnh viễn được — trình duyệt không cần hỏi lại lần nào nữa.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# HTML thì luôn phải hỏi lại, vì nó chứa tên file tài nguyên mới sau mỗi lần build.
+/*.html
+  Cache-Control: public, max-age=0, must-revalidate
+
+/
+  Cache-Control: public, max-age=0, must-revalidate
+
+# Vài header an toàn cơ bản. Site không nhận dữ liệu người dùng, không có form,
+# không có cookie, nên chỉ cần chặn nhúng vào trang khác và chặn đoán MIME type.
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: SAMEORIGIN

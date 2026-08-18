@@ -1,0 +1,51 @@
+/**
+ * wrangler.jsonc — cấu hình deploy lên Cloudflare Workers.
+ *
+ * Site này là STATIC THUẦN (Vite multi-page, không có API, không cần server), nên
+ * dùng Workers Static Assets: không khai báo `main` nên KHÔNG có Worker script nào
+ * chạy, Cloudflare phục vụ file trực tiếp từ mạng biên. Hệ quả:
+ *  - request tới file tĩnh KHÔNG tính vào hạn mức 100.000 request/ngày của Workers
+ *  - không có cold start, không tốn CPU time
+ *
+ * Xem hạn mức chính thức tại https://developers.cloudflare.com/workers/platform/pricing/
+ *
+ * Lệnh dùng:
+ *   npm run cf:dev      chạy thử bản build ở local, đúng cách Cloudflare phục vụ
+ *   npm run deploy      build rồi đẩy lên (cần `npx wrangler login` một lần)
+ */
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "motor-3d",
+  // Ngày này chỉ quyết định phiên bản runtime API của Workers; với site tĩnh nó
+  // không ảnh hưởng gì, nhưng wrangler vẫn yêu cầu có.
+  "compatibility_date": "2026-08-18",
+
+  "assets": {
+    "directory": "./dist",
+
+    /**
+     * "none" = phục vụ ĐÚNG đường dẫn được yêu cầu, không tự thêm/bớt `.html`
+     * và không tự thêm dấu gạch chéo cuối.
+     *
+     * Đây là lựa chọn đúng cho project này vì `vite.config.js` dùng `base: './'`
+     * (đường dẫn TƯƠNG ĐỐI) và mọi liên kết nội bộ đều ghi rõ `.html`:
+     *     trang chủ  -> ./pages/gearbox.html
+     *     hộp chọn   -> ./clutch.html
+     *     logo       -> ../index.html
+     *
+     * Nếu đổi sang "force-trailing-slash", URL sẽ thành /pages/gearbox/ và khi đó
+     * `../assets/x.js` trong trang sẽ trỏ sai thành /pages/assets/x.js — vỡ toàn bộ
+     * tài nguyên. Nhờ giữ "none" mà site chạy y hệt nhau trên Workers, GitHub Pages
+     * (kể cả khi nằm trong thư mục con) và cả khi mở bằng file://
+     */
+    "html_handling": "auto-trailing-slash",
+
+    // Đường dẫn không tồn tại thì phục vụ `dist/404.html` (nguồn: public/404.html)
+    // kèm đúng mã 404 — có danh sách 9 hệ thống để đi tiếp.
+    "not_found_handling": "404-page"
+  },
+
+  "observability": {
+    "enabled": true
+  }
+}

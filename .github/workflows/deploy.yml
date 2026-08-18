@@ -1,0 +1,39 @@
+# Deploy lên Cloudflare Workers mỗi lần push vào main.
+#
+# Cần hai secret trong repo (Settings → Secrets and variables → Actions):
+#   CLOUDFLARE_API_TOKEN    tạo ở dashboard, dùng template "Edit Cloudflare Workers"
+#   CLOUDFLARE_ACCOUNT_ID   lấy ở trang tổng quan Workers
+#
+# Nếu chỉ muốn deploy bằng tay thì xoá file này; `npm run deploy` vẫn chạy được.
+name: Deploy lên Cloudflare Workers
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Cổng chất lượng: 134 phép kiểm hình học và động học phải đạt trước khi deploy.
+      # Nếu một hệ thống có kích thước sai hoặc cơ cấu sinh NaN thì bản đó không lên được.
+      - name: Kiểm tra hình học và động học
+        run: npm run verify
+
+      - run: npm run build
+
+      - name: Deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

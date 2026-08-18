@@ -273,6 +273,64 @@ chạy trong nửa sau. Vì rãnh trống số được sinh ra từ chính hàm
 
 ---
 
+## Deploy lên Cloudflare Workers (miễn phí)
+
+Site là **static thuần** nên deploy bằng **Workers Static Assets**: không khai báo `main`
+trong `wrangler.jsonc` nên **không có Worker script nào chạy** — Cloudflare phục vụ file
+trực tiếp từ mạng biên. Vì vậy request tới file tĩnh không tính vào hạn mức 100.000
+request/ngày của Workers (xem [trang hạn mức](https://developers.cloudflare.com/workers/platform/pricing/)
+để tra số chính thức).
+
+```bash
+npx wrangler login      # một lần duy nhất, mở browser để cấp quyền
+npm run deploy          # verify → build → wrangler deploy
+```
+
+`npm run deploy` chạy `npm run verify` trước, nên **không thể deploy một bản mà 134 phép
+kiểm chưa đạt**. Sau lệnh đó site nằm ở `https://motor-3d.<subdomain>.workers.dev`.
+
+Xem thử ở local đúng cách Cloudflare phục vụ (khác `npm run dev` — bản này chạy trên
+bản build thật, có cả `_headers` và trang 404):
+
+```bash
+npm run cf:dev          # http://localhost:8787
+npm run cf:tail         # xem log request của bản đã deploy
+```
+
+### Vì sao `html_handling: "auto-trailing-slash"`
+
+`vite.config.js` dùng `base: './'` (đường dẫn **tương đối**), nên URL được phục vụ phải
+giữ đúng ĐỘ SÂU của file, không thì `../assets/x.js` trỏ sai. Với `auto-trailing-slash`:
+
+| URL yêu cầu | Kết quả | `../assets/x.js` phân giải thành |
+|---|---|---|
+| `/` | 200 `index.html` | `/assets/x.js` ✓ |
+| `/pages/gearbox.html` | 307 → `/pages/gearbox` | |
+| `/pages/gearbox` | 200 | `/assets/x.js` ✓ |
+| `/duong-dan-sai` | 404 + trang 404 riêng | |
+
+**Không được đổi sang `force-trailing-slash`**: URL sẽ thành `/pages/gearbox/`, khi đó
+`../assets/x.js` trỏ thành `/pages/assets/x.js` và vỡ toàn bộ tài nguyên.
+
+Nhờ giữ `base: './'` và mọi liên kết nội bộ đều ghi rõ `.html` mà site chạy y hệt nhau
+trên Workers, GitHub Pages (kể cả trong thư mục con), và cả khi mở bằng `file://`.
+
+### Cache
+
+`public/_headers` được Vite copy sang `dist/` và Cloudflare đọc nó:
+
+- `/assets/*` → `max-age=31536000, immutable`. An toàn vì Vite băm tên file, nội dung đổi
+  thì tên đổi.
+- HTML → `max-age=0, must-revalidate`, vì HTML chứa tên file tài nguyên mới sau mỗi build.
+
+### Tự deploy khi push (tuỳ chọn)
+
+`.github/workflows/deploy.yml` deploy mỗi lần push vào `main`. Cần thêm một secret trong
+repo: `CLOUDFLARE_API_TOKEN` (tạo ở dashboard, template **Edit Cloudflare Workers**) và
+`CLOUDFLARE_ACCOUNT_ID`. Xoá file đó đi nếu chỉ muốn deploy bằng tay.
+
+---
+
 ## Thêm một hệ thống 3D mới
 
 Engine (timeline, chọn chi tiết, phím tắt, panel, X-quang, chẩn đoán) dùng lại nguyên vẹn:

@@ -6,3 +6,6 @@ dist/
 
 # Playwright MCP output
 .playwright-mcp/
+
+# Cloudflare wrangler
+.wrangler/
